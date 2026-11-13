@@ -1,0 +1,52 @@
+{
+  "id": "jira",
+  "version": "0.1.0",
+  "api": 1,
+  "name": { "en": "Jira", "fr": "Jira" },
+  "description": {
+    "en": "The open sprint of your Jira projects next to your agents: read a ticket, put it in your message or turn it into an instruction",
+    "fr": "Le sprint en cours de vos projets Jira à côté de vos agents : lire un ticket, le mettre dans votre message ou en faire une consigne"
+  },
+  "wasm": "target/wasm32-wasip2/release/jira.wasm",
+  "permissions": { "exec": ["claude", "git"], "network": ["api.media.atlassian.com"] },
+  "contributes": {
+    "accounts": {
+      "label": { "en": "Jira sites", "fr": "Sites Jira" },
+      "fields": [
+        { "id": "site", "label": { "en": "Site", "fr": "Site" }, "kind": "host", "hint": { "en": "company.atlassian.net" } },
+        { "id": "email", "label": { "en": "Email", "fr": "E-mail" } },
+        {
+          "id": "token",
+          "label": { "en": "API token", "fr": "Jeton d’API" },
+          "kind": "secret",
+          "hint": { "en": "Made at id.atlassian.com › Security › API tokens", "fr": "À créer sur id.atlassian.com › Sécurité › Jetons d’API" }
+        }
+      ]
+    },
+    "panels": [{ "id": "main", "title": { "en": "Jira", "fr": "Jira" }, "page": "panel/index.html" }],
+    "items": [
+      {
+        "slot": "agent.tools",
+        "id": "sprint",
+        "label": { "en": "Jira", "fr": "Jira" },
+        "hint": { "en": "The open sprint of this project", "fr": "Le sprint en cours de ce projet" },
+        "icon": "tasks",
+        "words": ["jira", "sprint", "ticket"],
+        "action": { "panel.open": "main" }
+      }
+    ],
+    "tools": [
+      {
+        "name": "ticket",
+        "description": "Reads a Jira ticket: fields, description, subtasks, links, attachments and comments, as markdown.",
+        "input": { "type": "object", "properties": { "key": { "type": "string", "description": "The ticket key, like RING-12." } }, "required": ["key"] }
+      },
+      { "name": "sprint", "description": "Lists the tickets of the open sprint of the Jira projects linked to this Squadron project, with their status and assignee." },
+      {
+        "name": "search",
+        "description": "Searches Jira with a JQL query and lists up to 50 tickets per Jira site.",
+        "input": { "type": "object", "properties": { "jql": { "type": "string", "description": "A JQL query, like project = RING AND status = \"In Progress\"." } }, "required": ["jql"] }
+      }
+    ]
+  }
+}

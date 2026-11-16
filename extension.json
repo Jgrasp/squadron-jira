@@ -1,8 +1,8 @@
 {
   "id": "jira",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "api": 1,
-  "squadron": ">=0.47.0",
+  "squadron": ">=0.49.0",
   "name": { "en": "Jira", "fr": "Jira" },
   "description": {
     "en": "The open sprint of your Jira projects next to your agents: read a ticket, put it in your message or turn it into an instruction",
@@ -14,6 +14,7 @@
   "contributes": {
     "accounts": {
       "label": { "en": "Jira sites", "fr": "Sites Jira" },
+      "check": true,
       "fields": [
         { "id": "site", "label": { "en": "Site", "fr": "Site" }, "kind": "host", "hint": { "en": "company.atlassian.net" } },
         { "id": "email", "label": { "en": "Email", "fr": "E-mail" } },

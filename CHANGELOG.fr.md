@@ -1,5 +1,9 @@
 # Journal des modifications
 
+## 0.4.0 · 2026-11-16
+
+- Testez la connexion avant d’enregistrer un site Jira, et voyez dans la liste si chacun marche : connecté en tant que qui et combien de projets, ou pourquoi il échoue
+
 ## 0.3.0 · 2026-11-16
 
 - Le tableau et la liste suivent les colonnes de votre board Jira, dans son ordre, avec les statuts que chaque colonne regroupe

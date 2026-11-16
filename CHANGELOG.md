@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.0 · 2026-11-16
+
+- Test the connection before saving a Jira site, and see in the list whether each one works: connected as whom and how many projects, or why it fails
+
 ## 0.3.0 · 2026-11-16
 
 - The board and the list follow the columns of your Jira board, in its order, with the statuses each column holds

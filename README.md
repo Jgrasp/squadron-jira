@@ -4,7 +4,7 @@ A [Squadron](https://github.com/Jgrasp/squadron) extension that shows the open s
 
 ## Use
 
-1. In Settings › Extensions › Jira, add a Jira site: its address (`company.atlassian.net`), your email and an [API token](https://id.atlassian.com/manage-profile/security/api-tokens). Add as many sites as you need.
+1. In Settings › Extensions › Jira, add a Jira site: its address (`company.atlassian.net`), your email and an [API token](https://id.atlassian.com/manage-profile/security/api-tokens). **Test the connection** checks the site, the email and the token before you save them, and the list shows whether each site works. Add as many sites as you need.
 
    Choose **Create API token**, not **Create API token with scopes**: a scoped token only works through `api.atlassian.com`, and the extension calls your site. The token has the rights of your account, and the extension only reads, so you need the Browse projects permission on the Jira projects you want.
 2. Next to an agent, click **Jira** in its tools. The first time, choose the Jira projects of this Squadron project: keys found in its commits and branches come first.
@@ -30,7 +30,7 @@ Agents get three tools:
 
 The API token stays in the system keyring. Squadron adds it to the requests to its own site, and the extension never reads it.
 
-Needs Squadron 0.47.0 or later.
+Needs Squadron 0.49.0 or later.
 
 ## Build
 

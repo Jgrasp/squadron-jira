@@ -189,8 +189,8 @@ dependencies = [
 
 [[package]]
 name = "squadron_extension_api"
-version = "1.5.0"
-source = "git+https://github.com/Jgrasp/squadron-extensions#50555f791ed6c4b4aae81e8d48429f1dc6286c7f"
+version = "1.6.0"
+source = "git+https://github.com/Jgrasp/squadron-extensions#331327c95215d08ea851be4a666216b0540c0851"
 dependencies = [
  "wit-bindgen",
 ]

@@ -713,6 +713,24 @@ pub fn brief(reply: &str) -> Option<(String, String)> {
     (!prompt.is_empty()).then(|| (prompt, text(&brief["goal"]).trim().to_string()))
 }
 
+#[derive(Debug, PartialEq)]
+pub enum Check {
+    Refused,
+    NotJira,
+}
+
+pub fn check_answer(status: u16, body: &str) -> Result<String, Check> {
+    match status {
+        401 | 403 => Err(Check::Refused),
+        200 => serde_json::from_str::<Value>(body)
+            .ok()
+            .filter(|me| me["accountId"].is_string())
+            .map(|me| text(&me["displayName"]))
+            .ok_or(Check::NotJira),
+        _ => Err(Check::NotJira),
+    }
+}
+
 pub fn jira_error(status: u16, body: &str) -> String {
     match status {
         401 => "Jira refused this email and token.".into(),
@@ -820,6 +838,19 @@ mod tests {
         assert_eq!(tickets[0].column, "To qualify");
         assert_eq!(tickets[1].column, "In Progress");
         assert_eq!(order, ["Doing", "To qualify"]);
+    }
+
+    #[test]
+    fn tells_a_working_account_from_a_refused_one_or_another_site() {
+        assert_eq!(
+            check_answer(200, r#"{"accountId":"a1","displayName":"Ada"}"#),
+            Ok("Ada".into())
+        );
+        assert_eq!(check_answer(401, ""), Err(Check::Refused));
+        assert_eq!(check_answer(403, ""), Err(Check::Refused));
+        assert_eq!(check_answer(404, ""), Err(Check::NotJira));
+        assert_eq!(check_answer(200, "<html></html>"), Err(Check::NotJira));
+        assert_eq!(check_answer(302, ""), Err(Check::NotJira));
     }
 
     #[test]

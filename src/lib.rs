@@ -480,6 +480,56 @@ fn launch(agent: &Agent, account: &Account, key: &str, title: &str) -> Result<()
     Ok(())
 }
 
+fn check(account: &Account) -> Result<String, String> {
+    let fail = |title: Value, detail: Value, field: Option<&str>| {
+        json!({ "title": title, "detail": detail, "field": field }).to_string()
+    };
+    let answer = host::fetch(&request(account, "GET", "/rest/api/3/myself", None)).map_err(|_| {
+        fail(
+            words("Could not reach the site", "Impossible de joindre le site"),
+            words(
+                "The site did not answer. Check your connection and the address, then test again.",
+                "Le site n’a pas répondu. Vérifiez votre connexion et l’adresse, puis testez à nouveau.",
+            ),
+            None,
+        )
+    })?;
+    let name = jira::check_answer(answer.status, &answer.body).map_err(|problem| match problem {
+        jira::Check::Refused => fail(
+            words("Jira refused this email and token", "Jira refuse cet e-mail et ce jeton"),
+            words(
+                "The token may be wrong, expired or revoked: create a new one and paste it here.",
+                "Le jeton est peut-être faux, expiré ou révoqué\u{a0}: créez-en un nouveau et collez-le ici.",
+            ),
+            Some("token"),
+        ),
+        jira::Check::NotJira => fail(
+            words("No Jira site at this address", "Aucun site Jira à cette adresse"),
+            words(
+                "Check the address: it looks like company.atlassian.net.",
+                "Vérifiez l’adresse\u{a0}: elle ressemble à entreprise.atlassian.net.",
+            ),
+            Some("site"),
+        ),
+    })?;
+    let projects = call(
+        account,
+        "GET",
+        "/rest/api/3/project/search?maxResults=1",
+        None,
+    )
+    .ok()
+    .and_then(|p| p["total"].as_u64());
+    Ok(json!({
+        "text": words(&format!("Connected as {name}"), &format!("Connecté en tant que {name}")),
+        "detail": projects.map(|n| words(
+            &format!("{n} project{}", if n == 1 { "" } else { "s" }),
+            &format!("{n} projet{}", if n > 1 { "s" } else { "" }),
+        )),
+    })
+    .to_string())
+}
+
 fn post(message: Value) {
     host::panel_post("main", &message.to_string());
 }
@@ -619,6 +669,10 @@ impl Extension for Jira {
             }
             _ => {}
         }
+    }
+
+    fn check_account(account: Account) -> Result<String, String> {
+        check(&account)
     }
 
     fn call_tool(name: String, input: String, agent: Option<Agent>) -> Result<String, String> {

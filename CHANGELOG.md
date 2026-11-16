@@ -3,6 +3,7 @@
 ## 0.4.0 · 2026-11-16
 
 - Test the connection before saving a Jira site, and see in the list whether each one works: connected as whom and how many projects, or why it fails
+- Scrollbars in the panel take their own space instead of covering the filter counts
 
 ## 0.3.0 · 2026-11-16
 

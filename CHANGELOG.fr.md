@@ -3,6 +3,7 @@
 ## 0.4.0 · 2026-11-16
 
 - Testez la connexion avant d’enregistrer un site Jira, et voyez dans la liste si chacun marche : connecté en tant que qui et combien de projets, ou pourquoi il échoue
+- Les barres de défilement du panneau prennent leur propre place au lieu de couvrir les compteurs des filtres
 
 ## 0.3.0 · 2026-11-16
 

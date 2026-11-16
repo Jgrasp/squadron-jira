@@ -9,8 +9,9 @@ A [Squadron](https://github.com/Jgrasp/squadron) extension that shows the open s
    Choose **Create API token**, not **Create API token with scopes**: a scoped token only works through `api.atlassian.com`, and the extension calls your site. The token has the rights of your account, and the extension only reads, so you need the Browse projects permission on the Jira projects you want.
 2. Next to an agent, click **Jira** in its tools. The first time, choose the Jira projects of this Squadron project: keys found in its commits and branches come first.
 
-The panel lists the tickets of the open sprints, grouped by status, with a search and a **Mine** filter. A ticket shows its fields, description, subtasks, linked tickets, attachments and comments. From there:
+The panel lists the tickets of the open sprints, grouped by status, with a search and a **Mine** filter. **Board** shows them in a column per status, with filters by project, assignee, status, type, priority and epic: open the panel in full screen for it. A ticket shows its fields, description, subtasks, linked tickets, attachments and comments, which you can search. From there, or from its card on the board:
 
+- **Launch agent** opens Squadron's New agent window, named after the ticket: Haiku writes the first message and Done when from the fields you keep checked, and the ticket goes with the first message. Regenerate asks Haiku again. The card then says the agent started;
 - **Put in my message** adds the whole ticket to the message you are writing to the agent;
 - **Turn into an instruction** asks Haiku for the instruction and how to check it is done, and adds them to your message with the ticket;
 - an attachment opens in your app for it.

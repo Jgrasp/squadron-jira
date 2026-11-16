@@ -501,50 +501,83 @@ fn block(node: &Value, out: &mut String, indent: &str) {
     }
 }
 
+pub const FIELDS: [(&str, &str, &str); 12] = [
+    ("description", "Description", "Description"),
+    ("comments", "Comments", "Commentaires"),
+    ("subtasks", "Subtasks", "Sous-tâches"),
+    ("links", "Linked tickets", "Tickets liés"),
+    ("attachments", "Attachments", "Pièces jointes"),
+    ("parent", "Parent", "Parent"),
+    ("kind", "Type · Priority", "Type · Priorité"),
+    ("status", "Status", "Statut"),
+    ("labels", "Labels", "Étiquettes"),
+    (
+        "components",
+        "Components · Fix versions",
+        "Composants · Versions",
+    ),
+    ("people", "Assignee · Reporter", "Assigné · Rapporteur"),
+    ("custom", "Custom fields", "Champs personnalisés"),
+];
+
 pub fn context(ticket: &Ticket) -> String {
+    context_with(ticket, &FIELDS.map(|f| f.0.to_string()))
+}
+
+pub fn context_with(ticket: &Ticket, chosen: &[String]) -> String {
+    let on = |id: &str| chosen.iter().any(|c| c == id);
     let mut out = format!(
         "<ticket source=\"jira\" key=\"{}\" url=\"{}\">\n# {} {}\n",
         ticket.key, ticket.url, ticket.key, ticket.title
     );
-    let mut facts = vec![format!("Type: {}", ticket.kind)];
-    if !ticket.priority.is_empty() {
-        facts.push(format!("Priority: {}", ticket.priority));
+    let mut facts = Vec::new();
+    if on("kind") {
+        facts.push(format!("Type: {}", ticket.kind));
+        if !ticket.priority.is_empty() {
+            facts.push(format!("Priority: {}", ticket.priority));
+        }
     }
-    facts.push(format!("Status: {}", ticket.status));
-    if let Some(p) = &ticket.assignee {
-        facts.push(format!("Assignee: {p}"));
+    if on("status") {
+        facts.push(format!("Status: {}", ticket.status));
     }
-    if let Some(p) = &ticket.reporter {
-        facts.push(format!("Reporter: {p}"));
+    if on("people") {
+        if let Some(p) = &ticket.assignee {
+            facts.push(format!("Assignee: {p}"));
+        }
+        if let Some(p) = &ticket.reporter {
+            facts.push(format!("Reporter: {p}"));
+        }
     }
-    for (label, list) in [
-        ("Labels", &ticket.labels),
-        ("Components", &ticket.components),
-        ("Fix versions", &ticket.versions),
+    for (id, label, list) in [
+        ("labels", "Labels", &ticket.labels),
+        ("components", "Components", &ticket.components),
+        ("components", "Fix versions", &ticket.versions),
     ] {
-        if !list.is_empty() {
+        if on(id) && !list.is_empty() {
             facts.push(format!("{label}: {}", list.join(", ")));
         }
     }
-    if let Some(e) = &ticket.epic {
+    if let Some(e) = ticket.epic.as_ref().filter(|_| on("parent")) {
         facts.push(format!("Parent: {} {}", e.key, e.title));
     }
-    for f in &ticket.custom {
-        facts.push(format!("{}: {}", f.name, f.value));
+    if on("custom") {
+        for f in &ticket.custom {
+            facts.push(format!("{}: {}", f.name, f.value));
+        }
     }
     for fact in facts {
         out.push_str(&format!("- {fact}\n"));
     }
-    if !ticket.description.is_empty() {
+    if on("description") && !ticket.description.is_empty() {
         out.push_str(&format!("\n## Description\n{}\n", ticket.description));
     }
-    if !ticket.subtasks.is_empty() {
+    if on("subtasks") && !ticket.subtasks.is_empty() {
         out.push_str("\n## Subtasks\n");
         for s in &ticket.subtasks {
             out.push_str(&format!("- {} {} ({})\n", s.key, s.title, s.status));
         }
     }
-    if !ticket.links.is_empty() {
+    if on("links") && !ticket.links.is_empty() {
         out.push_str("\n## Linked tickets\n");
         for l in &ticket.links {
             out.push_str(&format!(
@@ -553,11 +586,11 @@ pub fn context(ticket: &Ticket) -> String {
             ));
         }
     }
-    if !ticket.attachments.is_empty() {
+    if on("attachments") && !ticket.attachments.is_empty() {
         let names: Vec<&str> = ticket.attachments.iter().map(|a| a.name.as_str()).collect();
         out.push_str(&format!("\n## Attachments\n{}\n", names.join(", ")));
     }
-    if !ticket.comments.is_empty() {
+    if on("comments") && !ticket.comments.is_empty() {
         out.push_str("\n## Comments\n");
         for c in ticket.comments.iter().filter(|c| c.parent.is_none()) {
             comment(&mut out, ticket, c, "");
@@ -712,6 +745,9 @@ mod tests {
         assert!(c.contains("- blocks RING-13 Refunds (To Do)\n"));
         assert!(c.contains("- Bob (2026-11-02): No PayPal.\n  - Ada (2026-11-03): Agreed.\n"));
         assert!(c.ends_with("</ticket>"));
+        let some = context_with(&t, &["description".into(), "status".into()]);
+        assert!(some.contains("- Status: In Progress\n") && some.contains("## Description"));
+        assert!(!some.contains("Bob") && !some.contains("Parent") && !some.contains("Type:"));
     }
 
     #[test]

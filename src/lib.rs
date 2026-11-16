@@ -347,6 +347,84 @@ fn brief(dir: &str, context: &str) -> Result<(String, String), String> {
     })
 }
 
+#[derive(Serialize, Deserialize)]
+struct Draft {
+    account: String,
+    key: String,
+    project: String,
+    dir: String,
+}
+
+fn draft(id: &str) -> Option<Draft> {
+    host::state_get(&format!("draft:{id}")).and_then(|s| serde_json::from_str(&s).ok())
+}
+
+fn launched(project: &str) -> BTreeMap<String, String> {
+    host::state_get(&format!("launched:{project}"))
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default()
+}
+
+fn words(en: &str, fr: &str) -> Value {
+    json!({ "en": en, "fr": fr })
+}
+
+fn choices(chosen: &[String]) -> Value {
+    json!({
+        "label": words("Context given to Haiku and to the agent", "Contexte donné à Haiku et à l’agent"),
+        "items": jira::FIELDS.iter().map(|(id, en, fr)| json!({ "id": id, "label": words(en, fr), "on": chosen.iter().any(|c| c == id) })).collect::<Vec<_>>(),
+    })
+}
+
+fn prepare(id: &str, chosen: &[String]) {
+    let Some(d) = draft(id) else { return };
+    let update = match account(&d.account).and_then(|a| ticket(&a, &d.key)) {
+        Err(e) => json!({ "status": { "state": "error", "text": e } }),
+        Ok(found) => {
+            let context = jira::context_with(&found, chosen);
+            match brief(&d.dir, &context) {
+                Ok((text, goal)) => json!({
+                    "text": text,
+                    "goal": goal,
+                    "context": context,
+                    "status": { "state": "done", "text": words("Instructions prepared by Haiku", "Consigne préparée par Haiku") },
+                }),
+                Err(e) => json!({ "context": context, "status": { "state": "error", "text": e } }),
+            }
+        }
+    };
+    host::update_new_agent(id, &update.to_string());
+}
+
+fn launch(agent: &Agent, account: &Account, key: &str, title: &str) -> Result<(), String> {
+    if !jira::ticket_key(key) {
+        return Err(format!("{key} is not a Jira key."));
+    }
+    let all: Vec<String> = jira::FIELDS.iter().map(|f| f.0.to_string()).collect();
+    let id = host::open_new_agent(
+        &agent.id,
+        &json!({
+            "name": format!("{key} {title}").trim(),
+            "link": { "key": key, "title": title, "url": format!("https://{}/browse/{key}", field(account, "site")) },
+            "choices": choices(&all),
+            "status": { "state": "running", "text": words("Haiku is preparing the instructions…", "Haiku prépare la consigne…") },
+        })
+        .to_string(),
+    );
+    let saved = Draft {
+        account: account.id.clone(),
+        key: key.to_string(),
+        project: agent.project.clone(),
+        dir: agent.dir.clone(),
+    };
+    host::state_set(
+        &format!("draft:{id}"),
+        Some(&serde_json::to_string(&saved).map_err(|e| e.to_string())?),
+    );
+    prepare(&id, &all);
+    Ok(())
+}
+
 fn post(message: Value) {
     host::panel_post("main", &message.to_string());
 }
@@ -359,7 +437,18 @@ fn answer(to: &str, kind: &str, agent: &Agent, message: &Value) -> Result<Value,
             "project": agent.project,
             "accounts": host::accounts().iter().map(|a| json!({ "id": a.id, "site": field(a, "site") })).collect::<Vec<_>>(),
             "sources": sources(&agent.project),
+            "launched": launched(&agent.project),
+            "view": host::state_get("view").unwrap_or_else(|| "list".into()),
         }),
+        "view" => {
+            let view = if text("view") == "board" { "board" } else { "list" };
+            host::state_set("view", Some(view));
+            json!({ "type": "view", "view": view })
+        }
+        "launch" => {
+            launch(agent, &account(&text("account"))?, &text("key"), &text("title"))?;
+            json!({ "type": "launch", "key": text("key") })
+        }
         "sprint" => {
             let mut found = serde_json::to_value(sprint(&agent.project)).map_err(|e| e.to_string())?;
             found["type"] = json!("sprint");
@@ -420,6 +509,36 @@ impl Extension for Jira {
     fn on_event(name: String, agent: Option<Agent>, data: String) {
         match name.as_str() {
             "accounts.changed" => post(json!({ "type": "changed", "to": "*" })),
+            "new-agent.regenerate" => {
+                let data: Value = serde_json::from_str(&data).unwrap_or_default();
+                let chosen: Vec<String> = data["choices"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .map(jira::text)
+                    .collect();
+                prepare(&jira::text(&data["draft"]), &chosen);
+            }
+            "new-agent.started" => {
+                let data: Value = serde_json::from_str(&data).unwrap_or_default();
+                let id = jira::text(&data["draft"]);
+                let (Some(d), Some(agent)) = (draft(&id), agent) else {
+                    return;
+                };
+                let mut list = launched(&d.project);
+                list.insert(d.key.clone(), agent.name.clone());
+                if let Ok(saved) = serde_json::to_string(&list) {
+                    host::state_set(&format!("launched:{}", d.project), Some(&saved));
+                }
+                host::state_set(&format!("draft:{id}"), None);
+                post(
+                    json!({ "type": "launched", "to": "*", "project": d.project, "key": d.key, "agent": agent.name }),
+                );
+            }
+            "new-agent.closed" => {
+                let data: Value = serde_json::from_str(&data).unwrap_or_default();
+                host::state_set(&format!("draft:{}", jira::text(&data["draft"])), None);
+            }
             "panel.message" => {
                 let data: Value = serde_json::from_str(&data).unwrap_or_default();
                 let message = &data["message"];

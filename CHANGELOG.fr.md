@@ -3,6 +3,9 @@
 ## 0.2.0 · 2026-11-16
 
 - Le logo Jira sur l’extension et sur le bouton Jira de chaque agent
+- Tableau : le sprint en cours en une colonne par statut, avec des filtres par projet, assigné, statut, type, priorité et epic
+- Lancer un agent ouvre la fenêtre Nouvel agent remplie par Haiku à partir du ticket, avec les champs qu’il lit à cocher ou décocher
+- Le ticket montre ses champs à côté de sa description quand le panneau est large, et ses commentaires se cherchent et se trient
 
 ## 0.1.1 · 2026-11-16
 

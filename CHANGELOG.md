@@ -3,6 +3,9 @@
 ## 0.2.0 · 2026-11-16
 
 - The Jira logo on the extension and on the Jira button of each agent
+- Board: the open sprint in a column per status, with filters by project, assignee, status, type, priority and epic
+- Launch agent opens the New agent window filled by Haiku from the ticket, with the fields it reads to check or uncheck
+- The ticket shows its fields beside its description when the panel is wide, and its comments can be searched and sorted
 
 ## 0.1.1 · 2026-11-16
 

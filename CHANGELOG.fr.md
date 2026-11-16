@@ -1,5 +1,11 @@
 # Journal des modifications
 
+## 0.3.0 · 2026-11-16
+
+- Le tableau et la liste suivent les colonnes de votre board Jira, dans son ordre, avec les statuts que chaque colonne regroupe
+- Glissez l’en-tête d’une colonne pour la déplacer ; Ordre de Jira les remet en place
+- Les filtres à gauche du tableau se replient et reviennent avec le bouton à côté de la recherche
+
 ## 0.2.0 · 2026-11-16
 
 - Le logo Jira sur l’extension et sur le bouton Jira de chaque agent

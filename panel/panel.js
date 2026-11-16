@@ -67,6 +67,11 @@ const T = fr
       count: (n) => `${n} ticket${n > 1 ? 's' : ''}`,
       reset: 'Réinitialiser les filtres',
       filters: 'Filtres',
+      columns: 'Colonnes',
+      hideFilters: 'Masquer les filtres',
+      showFilters: 'Afficher les filtres',
+      jiraOrder: 'Ordre de Jira',
+      dragColumn: 'Glissez pour déplacer la colonne',
     }
   : {
       loading: 'Loading…',
@@ -133,6 +138,11 @@ const T = fr
       count: (n) => `${n} ticket${n > 1 ? 's' : ''}`,
       reset: 'Reset filters',
       filters: 'Filters',
+      columns: 'Columns',
+      hideFilters: 'Hide the filters',
+      showFilters: 'Show the filters',
+      jiraOrder: 'Jira order',
+      dragColumn: 'Drag to move the column',
     }
 
 const emptyFilters = () => ({ mine: false, people: [], hidden: { status: [], kind: [], priority: [], epic: [] } })
@@ -140,6 +150,8 @@ const emptyFilters = () => ({ mine: false, people: [], hidden: { status: [], kin
 const state = {
   view: 'loading',
   layout: 'list',
+  rail: true,
+  order: [],
   project: '',
   accounts: [],
   sources: [],
@@ -201,14 +213,68 @@ function avatar(name, mine) {
   return name ? h('span', { class: `who${mine ? ' mine' : ''}`, title: name }, initials(name)) : h('span', { class: 'who nobody', title: T.unassigned }, '?')
 }
 
+const columnOf = (t) => t.column || t.status
+
+function rank(g) {
+  const custom = state.order.indexOf(g.status)
+  if (custom >= 0) return custom
+  const jira = (state.sprint?.columns ?? []).indexOf(g.status)
+  if (jira >= 0) return 1000 + jira
+  return 2000 + (RANK[g.category] ?? 1)
+}
+
 function columnsOf(list) {
   const groups = []
   for (const t of list) {
-    const g = groups.find((g) => g.status === t.status)
+    const g = groups.find((g) => g.status === columnOf(t))
     if (g) g.tickets.push(t)
-    else groups.push({ status: t.status, category: t.category, tickets: [t] })
+    else groups.push({ status: columnOf(t), category: t.category, tickets: [t] })
   }
-  return groups.sort((a, b) => (RANK[a.category] ?? 1) - (RANK[b.category] ?? 1))
+  return groups.sort((a, b) => rank(a) - rank(b))
+}
+
+function move(name, before) {
+  const names = columnsOf(state.sprint?.tickets ?? []).map((g) => g.status)
+  const next = names.filter((n) => n !== name)
+  const at = before === null ? next.length : next.indexOf(before)
+  next.splice(at < 0 ? next.length : at, 0, name)
+  if (next.join('\n') === names.join('\n')) return
+  state.order = next
+  send('order', { order: next })
+  render()
+}
+
+function drag(event, name) {
+  if (event.button !== 0) return
+  const box = event.currentTarget.closest('.columns')
+  const sections = [...box.querySelectorAll(':scope > section')]
+  const from = event.currentTarget.closest('section')
+  const start = event.clientX
+  let target = undefined
+  const mark = (x) => {
+    sections.forEach((s) => s.classList.remove('drop-before', 'drop-after'))
+    const after = sections.find((s) => {
+      const r = s.getBoundingClientRect()
+      return x < r.left + r.width / 2
+    })
+    target = after ? after.getAttribute('aria-label') : null
+    if (after) after.classList.add('drop-before')
+    else sections.at(-1)?.classList.add('drop-after')
+  }
+  const moveHandler = (e) => {
+    if (Math.abs(e.clientX - start) < 6 && target === undefined) return
+    from.classList.add('dragging')
+    mark(e.clientX)
+  }
+  const up = () => {
+    removeEventListener('pointermove', moveHandler)
+    removeEventListener('pointerup', up)
+    from.classList.remove('dragging')
+    sections.forEach((s) => s.classList.remove('drop-before', 'drop-after'))
+    if (target !== undefined && target !== name) move(name, target)
+  }
+  addEventListener('pointermove', moveHandler)
+  addEventListener('pointerup', up)
 }
 
 function loadSprint() {
@@ -256,6 +322,8 @@ squadron.on((msg) => {
       state.sources = msg.sources
       state.launched = msg.launched || {}
       state.layout = msg.view === 'board' ? 'board' : 'list'
+      state.rail = msg.rail !== false
+      state.order = msg.order || []
       state.projects = {}
       if (!msg.accounts.length) state.view = 'noAccount'
       else if (!msg.sources.length) return openSetup()
@@ -341,7 +409,7 @@ function visible() {
     (t) =>
       (!f.mine || t.mine) &&
       (!f.people.length || f.people.includes(t.assignee || '')) &&
-      !f.hidden.status.includes(t.status) &&
+      !f.hidden.status.includes(columnOf(t)) &&
       FACETS.every(([k]) => !f.hidden[k].includes(t[k])) &&
       (!q || `${t.key} ${t.title}`.toLowerCase().includes(q)),
   )
@@ -436,7 +504,7 @@ function rail() {
       ),
     section(T.show, check(f.mine, (e) => ((f.mine = e.target.checked), render()), T.mineOnly, h('small', {}, tally((t) => t.mine)))),
     section(
-      T.status,
+      T.columns,
       columnsOf(list).map((c) => check(!f.hidden.status.includes(c.status), () => ((f.hidden.status = toggle(f.hidden.status, c.status)), render()), h('span', { class: `status ${c.category}` }, c.status), h('small', {}, c.tickets.length))),
     ),
     people.length > 0 &&
@@ -487,7 +555,14 @@ function columns() {
     return box
   }
   for (const c of columnsOf(shown))
-    box.append(h('section', { 'aria-label': c.status }, h('h4', {}, h('span', { class: `status ${c.category}` }, c.status), h('span', { class: 'count' }, c.tickets.length)), h('ul', {}, c.tickets.map(card))))
+    box.append(
+      h(
+        'section',
+        { 'aria-label': c.status },
+        h('h4', { title: T.dragColumn, onpointerdown: (e) => drag(e, c.status) }, h('span', { class: `status ${c.category}` }, c.status), h('span', { class: 'count' }, c.tickets.length)),
+        h('ul', {}, c.tickets.map(card)),
+      ),
+    )
   return box
 }
 
@@ -526,8 +601,28 @@ function sprintView() {
       ? h(
           'div',
           { class: 'split' },
-          rail(),
-          h('div', { class: 'main' }, h('div', { class: 'tools' }, search, chip(T.mine, state.f.mine, () => ((state.f.mine = !state.f.mine), render())), h('span', { class: 'spacer' }), count()), (state.sprint?.errors ?? []).map((e) => h('p', { class: 'bad pad' }, e)), columns()),
+          state.rail && rail(),
+          h(
+            'div',
+            { class: 'main' },
+            h(
+              'div',
+              { class: 'tools' },
+              h(
+                'button',
+                { class: 'icon rail-toggle', title: state.rail ? T.hideFilters : T.showFilters, 'aria-label': state.rail ? T.hideFilters : T.showFilters, 'aria-pressed': String(state.rail), onclick: () => ((state.rail = !state.rail), send('rail', { on: state.rail }), render()) },
+                h('span', { class: 'panes', 'aria-hidden': 'true' }),
+                !state.rail && filtered() && h('span', { class: 'dot', 'aria-hidden': 'true' }),
+              ),
+              search,
+              chip(T.mine, state.f.mine, () => ((state.f.mine = !state.f.mine), render())),
+              h('span', { class: 'spacer' }),
+              state.order.length > 0 && h('button', { class: 'reset', onclick: () => ((state.order = []), send('order', { order: [] }), render()) }, T.jiraOrder),
+              count(),
+            ),
+            (state.sprint?.errors ?? []).map((e) => h('p', { class: 'bad pad' }, e)),
+            columns(),
+          ),
         )
       : [h('div', { class: 'tools' }, search, chip(T.mine, state.f.mine, () => ((state.f.mine = !state.f.mine), render())), ...sources), list()],
   ]

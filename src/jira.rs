@@ -8,12 +8,15 @@ pub struct Summary {
     pub title: String,
     pub status: String,
     pub category: String,
+    pub column: String,
     pub kind: String,
     pub priority: String,
     pub urgency: u8,
     pub epic: String,
     pub assignee: Option<String>,
     pub mine: bool,
+    #[serde(skip)]
+    pub status_id: String,
 }
 
 #[derive(Serialize, Debug)]
@@ -126,12 +129,46 @@ pub fn summary(
         title: text(&f["summary"]),
         status: text(&f["status"]["name"]),
         category: text(&f["status"]["statusCategory"]["key"]),
+        column: text(&f["status"]["name"]),
         kind: text(&f["issuetype"]["name"]),
         priority: text(&f["priority"]["name"]),
         urgency: urgency(&f["priority"]),
         epic: text(&f["parent"]["fields"]["summary"]),
         assignee: person(&f["assignee"]),
         mine: !me.is_empty() && text(&f["assignee"]["accountId"]) == me,
+        status_id: text(&f["status"]["id"]),
+    }
+}
+
+pub fn board_columns(config: &Value) -> Vec<(String, Vec<String>)> {
+    config["columnConfig"]["columns"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|c| {
+            let ids = c["statuses"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .map(|s| text(&s["id"]))
+                .filter(|id| !id.is_empty())
+                .collect();
+            (text(&c["name"]), ids)
+        })
+        .filter(|(name, ids): &(String, Vec<String>)| !name.is_empty() && !ids.is_empty())
+        .collect()
+}
+
+pub fn place(tickets: &mut [Summary], columns: &[(String, Vec<String>)], order: &mut Vec<String>) {
+    for (name, _) in columns {
+        if !order.contains(name) {
+            order.push(name.clone());
+        }
+    }
+    for t in tickets.iter_mut() {
+        if let Some((name, _)) = columns.iter().find(|(_, ids)| ids.contains(&t.status_id)) {
+            t.column = name.clone();
+        }
     }
 }
 
@@ -762,6 +799,27 @@ mod tests {
             &json!([{ "id": "customfield_9", "schema": { "custom": "com.pyxis.greenhopper.jira:gh-sprint" } }]),
         );
         assert_eq!(field.as_deref(), Some("customfield_9"));
+    }
+
+    #[test]
+    fn puts_tickets_in_the_columns_of_the_board() {
+        let columns = board_columns(&json!({ "columnConfig": { "columns": [
+            { "name": "Backlog", "statuses": [] },
+            { "name": "To qualify", "statuses": [{ "id": "1" }, { "id": "2" }] },
+            { "name": "Doing", "statuses": [{ "id": "3" }] }
+        ] } }));
+        assert_eq!(columns.len(), 2);
+        let mut qualified = issue();
+        qualified["fields"]["status"]["id"] = json!("2");
+        let mut tickets = vec![
+            summary(&qualified, "a1", "", None, &mut vec![]),
+            summary(&issue(), "a1", "", None, &mut vec![]),
+        ];
+        let mut order = vec!["Doing".to_string()];
+        place(&mut tickets, &columns, &mut order);
+        assert_eq!(tickets[0].column, "To qualify");
+        assert_eq!(tickets[1].column, "In Progress");
+        assert_eq!(order, ["Doing", "To qualify"]);
     }
 
     #[test]

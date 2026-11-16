@@ -846,3 +846,57 @@ input[type='checkbox']:checked::after {
     gap: 18px;
   }
 }
+
+.rail-toggle {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  height: 30px;
+  width: 30px;
+}
+
+.rail-toggle[aria-pressed='true'] {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.panes {
+  width: 14px;
+  height: 12px;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1.5px currentColor;
+  background: linear-gradient(currentColor, currentColor) 4px 0 / 1.5px 100% no-repeat;
+}
+
+.rail-toggle .dot {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text);
+}
+
+.tools .reset {
+  align-self: center;
+}
+
+.columns h4 {
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.columns > section.dragging {
+  opacity: 0.5;
+}
+
+.columns > section.drop-before {
+  box-shadow: -6px 0 0 -4px var(--text);
+}
+
+.columns > section.drop-after {
+  box-shadow: 6px 0 0 -4px var(--text);
+}

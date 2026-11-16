@@ -76,6 +76,38 @@ fn me(account: &Account) -> String {
     found
 }
 
+fn board_of(account: &Account, key: &str) -> Vec<(String, Vec<String>)> {
+    let cache = format!("board:{}:{key}", account.id);
+    let id = host::state_get(&cache).or_else(|| {
+        let found = call(
+            account,
+            "GET",
+            &format!("/rest/agile/1.0/board?projectKeyOrId={key}&maxResults=50"),
+            None,
+        )
+        .ok()?;
+        let boards = found["values"].as_array()?;
+        let board = boards
+            .iter()
+            .find(|b| b["type"] == "scrum")
+            .or(boards.first())?;
+        let id = board["id"].as_u64()?.to_string();
+        host::state_set(&cache, Some(&id));
+        Some(id)
+    });
+    id.and_then(|id| {
+        call(
+            account,
+            "GET",
+            &format!("/rest/agile/1.0/board/{id}/configuration"),
+            None,
+        )
+        .ok()
+    })
+    .map(|config| jira::board_columns(&config))
+    .unwrap_or_default()
+}
+
 fn sprint_of(
     account: &Account,
     keys: &[String],
@@ -126,6 +158,7 @@ fn sprint_of(
 struct Sprint {
     tickets: Vec<jira::Summary>,
     sprints: Vec<String>,
+    columns: Vec<String>,
     errors: Vec<String>,
 }
 
@@ -137,9 +170,30 @@ fn sprint(project: &str) -> Sprint {
     {
         by.entry(source.account).or_default().push(source.key);
     }
-    let (mut tickets, mut sprints, mut errors) = (Vec::new(), Vec::<String>::new(), Vec::new());
+    let (mut tickets, mut sprints, mut columns, mut errors) =
+        (Vec::new(), Vec::<String>::new(), Vec::new(), Vec::new());
     for (id, keys) in by {
-        match account(&id).and_then(|a| sprint_of(&a, &keys)) {
+        let found = account(&id).and_then(|a| {
+            let (mut found, names) = sprint_of(&a, &keys)?;
+            for key in &keys {
+                let board = board_of(&a, key);
+                let prefix = format!("{key}-");
+                let mut mine: Vec<jira::Summary> = Vec::new();
+                let mut rest = Vec::new();
+                for t in found.drain(..) {
+                    if t.key.starts_with(&prefix) {
+                        mine.push(t);
+                    } else {
+                        rest.push(t);
+                    }
+                }
+                jira::place(&mut mine, &board, &mut columns);
+                found = rest;
+                found.extend(mine);
+            }
+            Ok((found, names))
+        });
+        match found {
             Ok((found, names)) => {
                 tickets.extend(found);
                 for name in names {
@@ -154,6 +208,7 @@ fn sprint(project: &str) -> Sprint {
     Sprint {
         tickets,
         sprints,
+        columns,
         errors,
     }
 }
@@ -439,7 +494,20 @@ fn answer(to: &str, kind: &str, agent: &Agent, message: &Value) -> Result<Value,
             "sources": sources(&agent.project),
             "launched": launched(&agent.project),
             "view": host::state_get("view").unwrap_or_else(|| "list".into()),
+            "rail": host::state_get("rail").as_deref() != Some("off"),
+            "order": host::state_get(&format!("order:{}", agent.project)).and_then(|s| serde_json::from_str::<Value>(&s).ok()).unwrap_or(json!([])),
         }),
+        "rail" => {
+            let on = message["on"].as_bool().unwrap_or(true);
+            host::state_set("rail", (!on).then_some("off"));
+            json!({ "type": "rail", "on": on })
+        }
+        "order" => {
+            let order: Vec<String> = message["order"].as_array().into_iter().flatten().map(jira::text).filter(|s| !s.is_empty()).take(100).collect();
+            let saved = serde_json::to_string(&order).map_err(|e| e.to_string())?;
+            host::state_set(&format!("order:{}", agent.project), (!order.is_empty()).then_some(saved.as_str()));
+            json!({ "type": "order", "order": order })
+        }
         "view" => {
             let view = if text("view") == "board" { "board" } else { "list" };
             host::state_set("view", Some(view));

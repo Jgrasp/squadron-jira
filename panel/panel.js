@@ -447,6 +447,16 @@ function list() {
   return box
 }
 
+function spark() {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+  svg.setAttribute('width', '13')
+  svg.setAttribute('height', '13')
+  svg.setAttribute('viewBox', '0 0 24 24')
+  svg.setAttribute('aria-hidden', 'true')
+  svg.innerHTML = '<path d="M12 3l2.4 5.6L20 11l-5.6 2.4L12 19l-2.4-5.6L4 11l5.6-2.4z"/>'
+  return svg
+}
+
 function card(t) {
   const busy = state.busy === `launch:${t.key}`
   const agent = state.launched[t.key]
@@ -469,7 +479,7 @@ function card(t) {
     h(
       'span',
       { class: 'cfoot' },
-      h('button', { class: 'action', disabled: !!state.busy, title: T.launchHint, onclick: () => launch(t) }, busy ? h('span', { class: 'spin' }, '↻') : '→', T.launch),
+      h('button', { class: 'action', disabled: !!state.busy, title: T.launchHint, onclick: () => launch(t) }, busy ? h('span', { class: 'spin' }, '↻') : spark(), T.launch),
       agent && h('span', { class: 'started', title: agent }, T.started),
       h('span', { class: 'assignee' }, avatar(t.assignee, t.mine)),
     ),

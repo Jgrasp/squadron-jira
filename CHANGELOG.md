@@ -5,6 +5,7 @@
 - The board and the list follow the columns of your Jira board, in its order, with the statuses each column holds
 - Drag a column header to move it; Jira order puts them back
 - The filters on the left of the board fold away and come back with the button next to the search
+- Launch agent on a card is an outlined button with a sparkle, no longer an arrow
 
 ## 0.2.0 · 2026-11-16
 

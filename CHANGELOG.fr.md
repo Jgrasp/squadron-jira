@@ -5,6 +5,7 @@
 - Le tableau et la liste suivent les colonnes de votre board Jira, dans son ordre, avec les statuts que chaque colonne regroupe
 - Glissez l’en-tête d’une colonne pour la déplacer ; Ordre de Jira les remet en place
 - Les filtres à gauche du tableau se replient et reviennent avec le bouton à côté de la recherche
+- Lancer un agent, sur une carte, est un bouton à contour avec une étincelle, plus une flèche
 
 ## 0.2.0 · 2026-11-16
 

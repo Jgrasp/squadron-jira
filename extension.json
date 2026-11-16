@@ -1,6 +1,6 @@
 {
   "id": "jira",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "api": 1,
   "name": { "en": "Jira", "fr": "Jira" },
   "description": {
@@ -19,7 +19,11 @@
           "id": "token",
           "label": { "en": "API token", "fr": "Jeton d’API" },
           "kind": "secret",
-          "hint": { "en": "Made at id.atlassian.com › Security › API tokens", "fr": "À créer sur id.atlassian.com › Sécurité › Jetons d’API" }
+          "hint": {
+            "en": "Create API token (not “with scopes”)",
+            "fr": "Créer un jeton d’API (pas « avec des portées »)"
+          },
+          "url": "https://id.atlassian.com/manage-profile/security/api-tokens"
         }
       ]
     },

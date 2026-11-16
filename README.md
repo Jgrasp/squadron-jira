@@ -5,6 +5,8 @@ A [Squadron](https://github.com/Jgrasp/squadron) extension that shows the open s
 ## Use
 
 1. In Settings › Extensions › Jira, add a Jira site: its address (`company.atlassian.net`), your email and an [API token](https://id.atlassian.com/manage-profile/security/api-tokens). Add as many sites as you need.
+
+   Choose **Create API token**, not **Create API token with scopes**: a scoped token only works through `api.atlassian.com`, and the extension calls your site. The token has the rights of your account, and the extension only reads, so you need the Browse projects permission on the Jira projects you want.
 2. Next to an agent, click **Jira** in its tools. The first time, choose the Jira projects of this Squadron project: keys found in its commits and branches come first.
 
 The panel lists the tickets of the open sprints, grouped by status, with a search and a **Mine** filter. A ticket shows its fields, description, subtasks, linked tickets, attachments and comments. From there:

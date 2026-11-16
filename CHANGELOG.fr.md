@@ -1,5 +1,9 @@
 # Journal des modifications
 
+## 0.2.0 · 2026-11-16
+
+- Le logo Jira sur l’extension et sur le bouton Jira de chaque agent
+
 ## 0.1.1 · 2026-11-16
 
 - Le champ du jeton d’API mène à la page Atlassian qui le crée, et indique de prendre le jeton sans portées

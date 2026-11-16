@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.0 · 2026-11-16
+
+- The Jira logo on the extension and on the Jira button of each agent
+
 ## 0.1.1 · 2026-11-16
 
 - The API token field links to the Atlassian page that creates it, and says to pick the token without scopes

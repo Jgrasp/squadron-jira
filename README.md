@@ -29,7 +29,7 @@ Agents get three tools:
 
 The API token stays in the system keyring. Squadron adds it to the requests to its own site, and the extension never reads it.
 
-Needs Squadron with the extension API 1.3.
+Needs Squadron 0.47.0 or later.
 
 ## Build
 

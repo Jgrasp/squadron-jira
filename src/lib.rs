@@ -546,7 +546,15 @@ fn answer(to: &str, kind: &str, agent: &Agent, message: &Value) -> Result<Value,
             "view": host::state_get("view").unwrap_or_else(|| "list".into()),
             "rail": host::state_get("rail").as_deref() != Some("off"),
             "order": host::state_get(&format!("order:{}", agent.project)).and_then(|s| serde_json::from_str::<Value>(&s).ok()).unwrap_or(json!([])),
+            "filters": host::state_get(&format!("filters:{}", agent.project)).and_then(|s| serde_json::from_str::<Value>(&s).ok()).unwrap_or(json!({})),
         }),
+        "filters" => {
+            let filters = &message["filters"];
+            let saved = filters.to_string();
+            let keep = filters.is_object() && saved.len() < 20_000;
+            host::state_set(&format!("filters:{}", agent.project), keep.then_some(saved.as_str()));
+            json!({ "type": "filters" })
+        }
         "rail" => {
             let on = message["on"].as_bool().unwrap_or(true);
             host::state_set("rail", (!on).then_some("off"));

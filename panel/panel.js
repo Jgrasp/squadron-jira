@@ -176,6 +176,24 @@ const state = {
 
 const send = (type, extra = {}) => squadron.send({ ...extra, type, to: me })
 
+let kept = ''
+const snapshot = () => JSON.stringify({ source: state.source, f: state.f })
+function keep() {
+  const now = snapshot()
+  if (!state.project || now === kept) return
+  kept = now
+  send('filters', { filters: JSON.parse(now) })
+}
+
+function restore(saved = {}) {
+  const empty = emptyFilters()
+  const f = saved.f || {}
+  const list = (v) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string') : [])
+  state.source = state.sources.some((s) => `${s.account}:${s.key}` === saved.source) ? saved.source : ''
+  state.f = { mine: f.mine === true, people: list(f.people), hidden: Object.fromEntries(Object.keys(empty.hidden).map((k) => [k, list(f.hidden?.[k])])) }
+  kept = snapshot()
+}
+
 function h(tag, props = {}, ...children) {
   const el = document.createElement(tag)
   for (const [k, v] of Object.entries(props)) {
@@ -325,6 +343,7 @@ squadron.on((msg) => {
       state.rail = msg.rail !== false
       state.order = msg.order || []
       state.projects = {}
+      restore(msg.filters)
       if (!msg.accounts.length) state.view = 'noAccount'
       else if (!msg.sources.length) return openSetup()
       else {
@@ -840,6 +859,7 @@ function setupView() {
 }
 
 function render() {
+  keep()
   const app = document.getElementById('app')
   const focused = document.activeElement
   const at = focused?.tagName === 'INPUT' && focused.type !== 'checkbox' ? [...app.querySelectorAll('input')].indexOf(focused) : -1

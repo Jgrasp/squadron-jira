@@ -1,5 +1,9 @@
 # Journal des modifications
 
+## 0.4.1 · 2026-11-19
+
+- Les filtres du panneau restent tels que vous les avez réglés quand vous changez de conversation ou rouvrez le panneau
+
 ## 0.4.0 · 2026-11-16
 
 - Testez la connexion avant d’enregistrer un site Jira, et voyez dans la liste si chacun marche : connecté en tant que qui et combien de projets, ou pourquoi il échoue

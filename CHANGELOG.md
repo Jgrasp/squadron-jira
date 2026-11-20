@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.2 · 2026-11-20
+
+- The current sprint shows the tickets of projects whose key is a JQL reserved word, such as MAX
+
 ## 0.4.1 · 2026-11-19
 
 - The filters of the panel stay as you set them when you switch conversation or reopen the panel

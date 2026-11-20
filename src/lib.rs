@@ -129,7 +129,7 @@ fn sprint_of(
     }
     let jql = format!(
         "project in ({}) AND sprint in openSprints() ORDER BY project ASC, rank ASC",
-        keys.join(", ")
+        keys.iter().map(|k| format!("\"{k}\"")).collect::<Vec<_>>().join(", ")
     );
     let (mut tickets, mut sprints, mut token) = (Vec::new(), Vec::new(), None::<String>);
     loop {

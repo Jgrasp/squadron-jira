@@ -1,5 +1,9 @@
 # Journal des modifications
 
+## 0.4.2 · 2026-11-20
+
+- Le sprint en cours affiche les tickets des projets dont la clé est un mot réservé du JQL, comme MAX
+
 ## 0.4.1 · 2026-11-19
 
 - Les filtres du panneau restent tels que vous les avez réglés quand vous changez de conversation ou rouvrez le panneau

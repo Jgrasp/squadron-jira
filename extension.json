@@ -1,6 +1,6 @@
 {
   "id": "jira",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "api": 1,
   "squadron": ">=0.49.0",
   "name": { "en": "Jira", "fr": "Jira" },

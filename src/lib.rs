@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use squadron_extension_api::{Account, Agent, Extension, Request, host, squadron_extension};
 use std::collections::BTreeMap;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 struct Jira;
 
@@ -414,9 +415,50 @@ fn draft(id: &str) -> Option<Draft> {
     host::state_get(&format!("draft:{id}")).and_then(|s| serde_json::from_str(&s).ok())
 }
 
-fn launched(project: &str) -> BTreeMap<String, String> {
-    host::state_get(&format!("launched:{project}"))
-        .and_then(|s| serde_json::from_str(&s).ok())
+fn launches(project: &str) -> BTreeMap<String, Vec<jira::Launch>> {
+    jira::launches(
+        &host::state_get(&format!("launched:{project}"))
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_default(),
+    )
+}
+
+fn keep_launches(project: &str, list: &BTreeMap<String, Vec<jira::Launch>>) {
+    let saved = serde_json::to_string(list).unwrap_or_default();
+    host::state_set(&format!("launched:{project}"), (!list.is_empty()).then_some(saved.as_str()));
+}
+
+fn launched(project: &str) -> BTreeMap<String, Vec<jira::Launched>> {
+    let Ok(all) = host::all_agents() else {
+        return BTreeMap::new();
+    };
+    let live: Vec<jira::Live> = all
+        .into_iter()
+        .map(|a| jira::Live {
+            id: a.id,
+            name: a.name,
+            status: a.status,
+            waiting: a.waiting,
+            tool: a.tool,
+            error: a.error,
+            archived: a.archived,
+            since: a.since,
+        })
+        .collect();
+    let branches = host::agents()
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|s| Some((s.agent.id, s.branch?)))
+        .collect();
+    let (kept, shown) = jira::resolve(launches(project), &live, &branches, now());
+    keep_launches(project, &kept);
+    shown
+}
+
+fn now() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
         .unwrap_or_default()
 }
 
@@ -571,6 +613,13 @@ fn answer(to: &str, kind: &str, agent: &Agent, message: &Value) -> Result<Value,
             host::state_set("view", Some(view));
             json!({ "type": "view", "view": view })
         }
+        "resume" => {
+            match host::show_agent(&text("agent")) {
+                Err(e) if !e.contains("waits a second") => return Err(e),
+                _ => json!({ "type": "resumed" }),
+            }
+        }
+        "agents" => json!({ "type": "agents", "launched": launched(&agent.project) }),
         "launch" => {
             launch(agent, &account(&text("account"))?, &text("key"), &text("title"))?;
             json!({ "type": "launch", "key": text("key") })
@@ -651,15 +700,22 @@ impl Extension for Jira {
                 let (Some(d), Some(agent)) = (draft(&id), agent) else {
                     return;
                 };
-                let mut list = launched(&d.project);
-                list.insert(d.key.clone(), agent.name.clone());
-                if let Ok(saved) = serde_json::to_string(&list) {
-                    host::state_set(&format!("launched:{}", d.project), Some(&saved));
-                }
+                let mut list = launches(&d.project);
+                list.entry(d.key.clone()).or_default().push(jira::Launch {
+                    id: agent.id.clone(),
+                    name: agent.name.clone(),
+                    at: now(),
+                });
+                keep_launches(&d.project, &list);
                 host::state_set(&format!("draft:{id}"), None);
-                post(
-                    json!({ "type": "launched", "to": "*", "project": d.project, "key": d.key, "agent": agent.name }),
-                );
+                post(json!({
+                    "type": "launched",
+                    "to": "*",
+                    "project": d.project,
+                    "key": d.key,
+                    "agent": agent.name,
+                    "launched": launched(&d.project),
+                }));
             }
             "new-agent.closed" => {
                 let data: Value = serde_json::from_str(&data).unwrap_or_default();

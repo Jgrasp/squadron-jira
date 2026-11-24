@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.0 · 2026-11-24
+
+- Once a ticket has agents, Launch agent becomes Agent ▾: launch a new agent or bring back one of the ticket's agents, and hover one to see its state, its branch and when it was launched
+- Needs Squadron 0.52.0 and asks to see your agents and show them
+
 ## 0.4.2 · 2026-11-20
 
 - The current sprint shows the tickets of projects whose key is a JQL reserved word, such as MAX

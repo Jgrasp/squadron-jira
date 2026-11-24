@@ -1,5 +1,10 @@
 # Journal des modifications
 
+## 0.5.0 · 2026-11-24
+
+- Dès qu’un ticket a des agents, Lancer un agent devient Agent ▾ : lancez un nouvel agent ou reprenez un agent du ticket, et survolez-le pour voir son état, sa branche et quand il a été lancé
+- Demande Squadron 0.52.0 et l’accès à vos agents pour les afficher
+
 ## 0.4.2 · 2026-11-20
 
 - Le sprint en cours affiche les tickets des projets dont la clé est un mot réservé du JQL, comme MAX

@@ -11,7 +11,7 @@ A [Squadron](https://github.com/Jgrasp/squadron) extension that shows the open s
 
 The panel lists the tickets of the open sprints, grouped by status, with a search and a **Mine** filter. **Board** shows them in the columns of your Jira board, in its order, with filters by project, assignee, column, type, priority and epic that fold away: open the panel in full screen for it. Drag a column header to move it; **Jira order** puts them back. A ticket shows its fields, description, subtasks, linked tickets, attachments and comments, which you can search. From there, or from its card on the board:
 
-- **Launch agent** opens Squadron's New agent window, named after the ticket: Haiku writes the first message and Done when from the fields you keep checked, and the ticket goes with the first message. Regenerate asks Haiku again. The card then says the agent started;
+- **Launch agent** opens Squadron's New agent window, named after the ticket: Haiku writes the first message and Done when from the fields you keep checked, and the ticket goes with the first message. Regenerate asks Haiku again. Once a ticket has agents, the button becomes **Agent ▾**: its menu launches a new agent or brings back one launched from the ticket, and hovering an agent shows its state, its branch and when it was launched;
 - **Put in my message** adds the whole ticket to the message you are writing to the agent;
 - **Turn into an instruction** asks Haiku for the instruction and how to check it is done, and adds them to your message with the ticket;
 - an attachment opens in your app for it.
@@ -26,11 +26,13 @@ Agents get three tools:
 
 - `claude`, with any arguments: **Turn into an instruction** runs Claude Code on Haiku, with no tools;
 - `git`, with any arguments: reads the last commits and the branches to suggest Jira projects;
-- HTTPS requests to `api.media.atlassian.com`, where Jira sends attachments. The Jira sites you add need no permission.
+- HTTPS requests to `api.media.atlassian.com`, where Jira sends attachments. The Jira sites you add need no permission;
+- `agents: read` and `agents: activity`: the state, the branch and the archive of the agents launched from a ticket, for the **Agent ▾** menu;
+- `agents: show`: brings back the agent you pick in that menu.
 
 The API token stays in the system keyring. Squadron adds it to the requests to its own site, and the extension never reads it.
 
-Needs Squadron 0.49.0 or later.
+Needs Squadron 0.52.0 or later.
 
 ## Build
 

@@ -2,7 +2,7 @@
   "id": "jira",
   "version": "0.4.2",
   "api": 1,
-  "squadron": ">=0.49.0",
+  "squadron": ">=0.52.0",
   "name": { "en": "Jira", "fr": "Jira" },
   "description": {
     "en": "The open sprint of your Jira projects next to your agents: read a ticket, put it in your message or turn it into an instruction",
@@ -10,7 +10,7 @@
   },
   "logo": "logo.svg",
   "wasm": "target/wasm32-wasip2/release/jira.wasm",
-  "permissions": { "exec": ["claude", "git"], "network": ["api.media.atlassian.com"] },
+  "permissions": { "exec": ["claude", "git"], "network": ["api.media.atlassian.com"], "agents": ["read", "activity", "show"] },
   "contributes": {
     "accounts": {
       "label": { "en": "Jira sites", "fr": "Sites Jira" },

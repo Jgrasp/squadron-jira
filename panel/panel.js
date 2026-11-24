@@ -30,7 +30,20 @@ const T = fr
       launchHint: 'Ouvre la fenêtre Nouvel agent, que Haiku remplit à partir du ticket.',
       launching: 'Haiku prépare la consigne…',
       launched: (name) => `Agent « ${name} » lancé.`,
-      started: 'Agent lancé',
+      agent: 'Agent',
+      agentHint: 'Lancer un nouvel agent ou reprendre un agent de ce ticket',
+      launchNew: 'Lancer un nouvel agent',
+      resumeHead: 'Reprendre un agent',
+      states: { working: 'En cours', waiting: 'Vous attend', done: 'Terminé', interrupted: 'Interrompu', error: 'En erreur' },
+      archived: 'Archivé',
+      waitingFor: { permission: 'demande une autorisation', question: 'pose une question' },
+      running: (tool) => `utilise ${tool}`,
+      errors: { crash: 'son processus s’est arrêté', api: 'refusé par l’API de Claude', mcp: 'un serveur MCP a échoué' },
+      forTime: (d) => `depuis ${d}`,
+      branch: 'Branche',
+      launchedAt: 'Lancé',
+      showHint: 'Cliquez pour l’afficher',
+      archiveHint: 'Cliquez pour l’ouvrir en lecture seule, dans l’archive',
       inserted: 'Ajouté à votre message.',
       briefing: 'Haiku écrit la consigne…',
       description: 'Description',
@@ -101,7 +114,20 @@ const T = fr
       launchHint: 'Opens the New agent window, filled by Haiku from the ticket.',
       launching: 'Haiku is preparing the instructions…',
       launched: (name) => `Agent “${name}” started.`,
-      started: 'Agent started',
+      agent: 'Agent',
+      agentHint: 'Launch a new agent or resume an agent of this ticket',
+      launchNew: 'Launch a new agent',
+      resumeHead: 'Resume an agent',
+      states: { working: 'Working', waiting: 'Waiting for you', done: 'Done', interrupted: 'Interrupted', error: 'Error' },
+      archived: 'Archived',
+      waitingFor: { permission: 'asks for a permission', question: 'asks a question' },
+      running: (tool) => `running ${tool}`,
+      errors: { crash: 'its process stopped', api: 'refused by Claude’s API', mcp: 'an MCP server failed' },
+      forTime: (d) => `for ${d}`,
+      branch: 'Branch',
+      launchedAt: 'Launched',
+      showHint: 'Click to show it',
+      archiveHint: 'Click to open it read only, in the archive',
       inserted: 'Added to your message.',
       briefing: 'Haiku is writing the instruction…',
       description: 'Description',
@@ -156,6 +182,9 @@ const state = {
   accounts: [],
   sources: [],
   launched: {},
+  menu: '',
+  menuFor: null,
+  peek: '',
   sprint: null,
   loading: false,
   query: '',
@@ -322,6 +351,8 @@ function openSetup() {
 }
 
 function launch(t) {
+  state.menu = ''
+  state.peek = ''
   state.busy = `launch:${t.key}`
   state.error = ''
   state.note = state.view === 'ticket' ? T.launching : ''
@@ -369,9 +400,14 @@ squadron.on((msg) => {
       break
     case 'launched':
       if (msg.project !== state.project) return
-      state.launched = { ...state.launched, [msg.key]: msg.agent }
+      state.launched = msg.launched || state.launched
       if (state.view === 'ticket' && state.ticket?.key === msg.key) state.note = T.launched(msg.agent)
       break
+    case 'agents':
+      state.launched = msg.launched || {}
+      break
+    case 'resumed':
+      return
     case 'inserted':
     case 'briefed':
       state.busy = ''
@@ -476,9 +512,153 @@ function spark() {
   return svg
 }
 
-function card(t) {
+const lang = fr ? 'fr' : 'en'
+const UNITS = [
+  ['day', 86400000],
+  ['hour', 3600000],
+  ['minute', 60000],
+]
+
+function span(ms) {
+  const [unit, size] = UNITS.find(([, size]) => ms >= size) || UNITS.at(-1)
+  return new Intl.NumberFormat(lang, { style: 'unit', unit, unitDisplay: 'short' }).format(Math.max(1, Math.floor(ms / size)))
+}
+
+function ago(at) {
+  const ms = Date.now() - at
+  const [unit, size] = UNITS.find(([, size]) => ms >= size) || ['second', 1000]
+  return new Intl.RelativeTimeFormat(lang, { numeric: 'auto' }).format(-Math.floor(ms / size), unit)
+}
+
+const agentsOf = (key) => state.launched[key] || []
+const stateOf = (a) => (a.archived ? 'archived' : a.status)
+const labelOf = (a) => (a.archived ? T.archived : T.states[a.status] || a.status)
+const detailOf = (a) => (a.archived ? '' : a.status === 'waiting' ? T.waitingFor[a.waiting] : a.status === 'working' && a.tool ? T.running(a.tool) : a.status === 'error' ? T.errors[a.error] : '') || ''
+const dot = (a) => h('span', { class: `adot ${stateOf(a)}` })
+
+function chevron() {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+  svg.setAttribute('width', '12')
+  svg.setAttribute('height', '12')
+  svg.setAttribute('viewBox', '0 0 24 24')
+  svg.setAttribute('aria-hidden', 'true')
+  svg.setAttribute('class', 'chevron')
+  svg.innerHTML = '<path d="M6 9l6 6 6-6"/>'
+  return svg
+}
+
+function agentButton(t, where) {
   const busy = state.busy === `launch:${t.key}`
-  const agent = state.launched[t.key]
+  const agents = agentsOf(t.key)
+  const primary = where === 'ticket'
+  const spin = busy && h('span', { class: 'spin' }, '↻')
+  if (!agents.length) return primary ? h('button', { class: 'primary', disabled: !!state.busy, title: T.launchHint, onclick: () => launch(t) }, spin, busy ? ' ' : null, T.launch) : h('button', { class: 'action', disabled: !!state.busy, title: T.launchHint, onclick: () => launch(t) }, spin || spark(), T.launch)
+  const id = `${where}:${t.account}:${t.key}`
+  const open = (e) => {
+    e.stopPropagation()
+    state.peek = ''
+    state.menu = state.menu === id ? '' : id
+    state.menuFor = t
+    if (state.menu) send('agents')
+    floating()
+  }
+  return h('button', { class: `agentbtn ${primary ? 'primary' : 'action'}`, 'data-menu': id, 'aria-haspopup': 'menu', 'aria-expanded': String(state.menu === id), disabled: !!state.busy, title: T.agentHint, onclick: open }, spin || dot(agents[0]), T.agent, h('span', { class: 'n' }, agents.length), chevron())
+}
+
+function resume(a) {
+  state.menu = ''
+  state.peek = ''
+  state.error = ''
+  send('resume', { agent: a.id })
+  floating()
+}
+
+const layer = document.body.appendChild(h('div', { id: 'layer' }))
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(v, hi))
+
+function floating() {
+  document.querySelectorAll('[data-menu]').forEach((b) => b.setAttribute('aria-expanded', String(b.dataset.menu === state.menu)))
+  const anchor = state.menu && [...document.querySelectorAll('[data-menu]')].find((b) => b.dataset.menu === state.menu)
+  const t = state.menuFor
+  if (!anchor || !t || !agentsOf(t.key).length) {
+    state.menu = ''
+    state.peek = ''
+    return layer.replaceChildren()
+  }
+  const agents = agentsOf(t.key)
+  const menu = h(
+    'div',
+    { class: 'amenu', role: 'menu' },
+    h('button', { class: 'aitem', role: 'menuitem', onclick: () => launch(t) }, spark(), T.launchNew),
+    h('div', { class: 'asep' }),
+    h('div', { class: 'ahead' }, T.resumeHead),
+    agents.map((a) =>
+      h(
+        'button',
+        { class: `aitem${a.archived ? ' old' : ''}`, role: 'menuitem', 'data-id': a.id, onmouseenter: (e) => peek(e.currentTarget, a), onmouseleave: unpeek, onfocus: (e) => peek(e.currentTarget, a), onblur: unpeek, onclick: () => resume(a) },
+        dot(a),
+        h('span', { class: 'what' }, h('span', { class: 'aname' }, a.name), h('small', {}, [labelOf(a), a.at ? ago(a.at) : ''].filter(Boolean).join(' · '))),
+      ),
+    ),
+  )
+  layer.replaceChildren(menu)
+  const r = anchor.getBoundingClientRect()
+  const m = menu.getBoundingClientRect()
+  menu.style.left = `${clamp(r.left, 8, innerWidth - m.width - 8)}px`
+  menu.style.top = `${r.bottom + 4 + m.height > innerHeight - 8 && r.top - 4 - m.height >= 8 ? r.top - 4 - m.height : r.bottom + 4}px`
+  const hovered = state.peek && menu.querySelector(`[data-id="${CSS.escape(state.peek)}"]`)
+  if (hovered) peek(hovered, agents.find((a) => a.id === state.peek))
+}
+
+function peek(item, a) {
+  if (!a) return
+  state.peek = a.id
+  layer.querySelectorAll('.aitem.hot').forEach((x) => x.classList.remove('hot'))
+  item.classList.add('hot')
+  const facts = [a.branch && [T.branch, h('span', { class: 'mono' }, a.branch)], a.at && [T.launchedAt, ago(a.at)]].filter(Boolean)
+  const box = h(
+    'div',
+    { class: 'apeek' },
+    h('p', { class: 'ptitle' }, a.name),
+    h('div', { class: 'pstate' }, dot(a), labelOf(a), h('small', {}, [detailOf(a), a.since && T.forTime(span(Date.now() - a.since))].filter(Boolean).join(' · '))),
+    facts.length > 0 && h('dl', { class: 'facts' }, facts.map(([k, v]) => [h('dt', {}, k), h('dd', {}, v)])),
+    h('p', { class: 'phint' }, a.archived ? T.archiveHint : T.showHint),
+  )
+  layer.querySelector('.apeek')?.remove()
+  layer.append(box)
+  const m = layer.querySelector('.amenu').getBoundingClientRect()
+  const r = item.getBoundingClientRect()
+  const b = box.getBoundingClientRect()
+  let left = m.right + 6
+  let top = clamp(r.top - 4, 8, innerHeight - b.height - 8)
+  if (left + b.width > innerWidth - 8) left = m.left - 6 - b.width
+  if (left < 8) {
+    left = clamp(m.left, 8, innerWidth - b.width - 8)
+    top = m.bottom + 6 + b.height <= innerHeight - 8 ? m.bottom + 6 : Math.max(8, m.top - 6 - b.height)
+  }
+  box.style.left = `${left}px`
+  box.style.top = `${top}px`
+}
+
+function unpeek() {
+  state.peek = ''
+  layer.querySelectorAll('.aitem.hot').forEach((x) => x.classList.remove('hot'))
+  layer.querySelector('.apeek')?.remove()
+}
+
+function closeMenu() {
+  if (!state.menu) return
+  state.menu = ''
+  floating()
+}
+
+addEventListener('click', (e) => {
+  if (!e.target.closest('#layer')) closeMenu()
+})
+addEventListener('scroll', (e) => e.target.closest?.('#layer') || closeMenu(), true)
+addEventListener('resize', closeMenu)
+
+function card(t) {
   return h(
     'li',
     { class: 'card' },
@@ -498,8 +678,7 @@ function card(t) {
     h(
       'span',
       { class: 'cfoot' },
-      h('button', { class: 'action', disabled: !!state.busy, title: T.launchHint, onclick: () => launch(t) }, busy ? h('span', { class: 'spin' }, '↻') : spark(), T.launch),
-      agent && h('span', { class: 'started', title: agent }, T.started),
+      agentButton(t, 'card'),
       h('span', { class: 'assignee' }, avatar(t.assignee, t.mine)),
     ),
   )
@@ -721,7 +900,6 @@ function ticketView() {
     send(kind, { account: t.account, key: t.key })
     render()
   }
-  const launching = state.busy === `launch:${t.key}`
   const search = h('input', {
     type: 'search',
     placeholder: T.searchComments,
@@ -788,12 +966,11 @@ function ticketView() {
       h(
         'div',
         { class: 'actions' },
-        h('button', { class: 'primary', disabled: !!state.busy, title: T.launchHint, onclick: () => launch(t) }, launching ? h('span', { class: 'spin' }, '↻') : null, launching ? ' ' : null, T.launch),
+        agentButton(t, 'ticket'),
         h('button', { disabled: !!state.busy, onclick: () => act('insert') }, T.insert),
         h('button', { disabled: !!state.busy, title: T.briefHint, onclick: () => act('brief') }, state.busy === 'brief' ? h('span', { class: 'spin' }, '↻') : null, state.busy === 'brief' ? ' ' : null, T.brief),
       ),
       state.note && h('p', { class: 'note' }, state.note),
-      !state.note && state.launched[t.key] && h('p', { class: 'note' }, T.launched(state.launched[t.key])),
       state.error && h('p', { class: 'bad' }, state.error),
       h('div', { class: 'whole' }, main, side),
     ),
@@ -866,6 +1043,7 @@ function render() {
   const views = { loading: () => [h('div', { class: 'body' }, h('p', { class: 'empty' }, T.loading))], noAccount, sprint: sprintView, ticket: ticketView, setup: setupView }
   app.className = state.view === 'sprint' && state.layout === 'board' ? 'is-board' : ''
   app.replaceChildren(...views[state.view]().flat(Infinity).filter(Boolean))
+  floating()
   if (at >= 0) {
     const input = app.querySelectorAll('input')[at]
     if (input && state.view !== 'setup') {
@@ -876,6 +1054,7 @@ function render() {
 }
 
 addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeMenu()
   if (e.key !== '/' || e.target.closest('input, textarea') || state.view !== 'sprint') return
   e.preventDefault()
   document.querySelector('.tools input')?.focus()

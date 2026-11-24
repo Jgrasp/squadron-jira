@@ -1,5 +1,6 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::BTreeMap;
 
 #[derive(Serialize, Debug, PartialEq)]
 pub struct Summary {
@@ -749,10 +750,162 @@ pub fn jira_error(status: u16, body: &str) -> String {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct Launch {
+    #[serde(default)]
+    pub id: String,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub at: u64,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Live {
+    pub id: String,
+    pub name: String,
+    pub status: String,
+    pub waiting: Option<String>,
+    pub tool: Option<String>,
+    pub error: Option<String>,
+    pub archived: bool,
+    pub since: u64,
+}
+
+#[derive(Serialize, Debug, PartialEq)]
+pub struct Launched {
+    pub id: String,
+    pub name: String,
+    pub status: String,
+    pub waiting: Option<String>,
+    pub tool: Option<String>,
+    pub error: Option<String>,
+    pub archived: bool,
+    pub since: u64,
+    pub at: u64,
+    pub branch: Option<String>,
+}
+
+pub fn launches(saved: &Value) -> BTreeMap<String, Vec<Launch>> {
+    let Some(map) = saved.as_object() else {
+        return BTreeMap::new();
+    };
+    map.iter()
+        .map(|(key, v)| {
+            let list = match v {
+                Value::String(name) => vec![Launch { id: String::new(), name: name.clone(), at: 0 }],
+                v => serde_json::from_value(v.clone()).unwrap_or_default(),
+            };
+            (key.clone(), list)
+        })
+        .collect()
+}
+
+pub fn resolve(
+    saved: BTreeMap<String, Vec<Launch>>,
+    live: &[Live],
+    branches: &BTreeMap<String, String>,
+    now: u64,
+) -> (BTreeMap<String, Vec<Launch>>, BTreeMap<String, Vec<Launched>>) {
+    let (mut kept, mut shown) = (BTreeMap::new(), BTreeMap::new());
+    for (key, list) in saved {
+        let mut found: Vec<(Launch, &Live)> = Vec::new();
+        let mut fresh = Vec::new();
+        for launch in list {
+            let agent = if launch.id.is_empty() {
+                live.iter()
+                    .filter(|a| a.name == launch.name)
+                    .max_by_key(|a| (!a.archived, a.since))
+            } else {
+                live.iter().find(|a| a.id == launch.id)
+            };
+            match agent {
+                Some(a) if found.iter().all(|(_, b)| b.id != a.id) => {
+                    let name = if a.name.is_empty() { launch.name.clone() } else { a.name.clone() };
+                    found.push((Launch { id: a.id.clone(), name, at: launch.at }, a));
+                }
+                None if launch.at > 0 && now.saturating_sub(launch.at) < 120_000 => fresh.push(launch),
+                _ => {}
+            }
+        }
+        if found.is_empty() {
+            if !fresh.is_empty() {
+                kept.insert(key, fresh);
+            }
+            continue;
+        }
+        found.sort_by_key(|(l, a)| std::cmp::Reverse((l.at, a.since)));
+        shown.insert(
+            key.clone(),
+            found
+                .iter()
+                .map(|(l, a)| Launched {
+                    id: a.id.clone(),
+                    name: l.name.clone(),
+                    status: a.status.clone(),
+                    waiting: a.waiting.clone(),
+                    tool: a.tool.clone(),
+                    error: a.error.clone(),
+                    archived: a.archived,
+                    since: a.since,
+                    at: l.at,
+                    branch: branches.get(&a.id).cloned(),
+                })
+                .collect(),
+        );
+        kept.insert(key, found.into_iter().map(|(l, _)| l).chain(fresh).collect());
+    }
+    (kept, shown)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+
+    fn live(id: &str, name: &str, archived: bool, since: u64) -> Live {
+        Live {
+            id: id.into(),
+            name: name.into(),
+            status: "done".into(),
+            waiting: None,
+            tool: None,
+            error: None,
+            archived,
+            since,
+        }
+    }
+
+    #[test]
+    fn launched_agents_are_matched_sorted_and_pruned() {
+        let saved = launches(&json!({
+            "RING-1": "RING-1 Pay by card",
+            "RING-2": [
+                { "id": "a2", "name": "old name", "at": 100 },
+                { "id": "gone", "name": "RING-2 Gone", "at": 300 },
+                { "id": "a3", "name": "RING-2 Retry", "at": 200 }
+            ],
+            "RING-3": [{ "id": "gone", "name": "RING-3", "at": 1 }],
+            "RING-4": [{ "id": "new", "name": "RING-4 Just launched", "at": 1_000_000 }]
+        }));
+        let agents = [
+            live("a0", "RING-1 Pay by card", true, 50),
+            live("a1", "RING-1 Pay by card", false, 10),
+            live("a2", "RING-2 First try", true, 5),
+            live("a3", "", false, 7),
+        ];
+        let branches = BTreeMap::from([("a3".to_string(), "ring-2-retry".to_string())]);
+        let (kept, shown) = resolve(saved, &agents, &branches, 1_060_000);
+        assert_eq!(kept["RING-1"], vec![Launch { id: "a1".into(), name: "RING-1 Pay by card".into(), at: 0 }]);
+        assert_eq!(shown["RING-2"].iter().map(|a| a.id.as_str()).collect::<Vec<_>>(), ["a3", "a2"]);
+        assert_eq!(shown["RING-2"][0].branch.as_deref(), Some("ring-2-retry"));
+        assert_eq!(shown["RING-2"][1].name, "RING-2 First try");
+        assert_eq!(shown["RING-2"][0].name, "RING-2 Retry");
+        assert!(!kept.contains_key("RING-3") && !shown.contains_key("RING-3"));
+        assert_eq!(kept["RING-4"][0].id, "new");
+        assert!(!shown.contains_key("RING-4"));
+        assert!(launches(&json!(null)).is_empty());
+    }
 
     fn issue() -> Value {
         json!({

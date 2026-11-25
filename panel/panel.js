@@ -759,7 +759,7 @@ function columns() {
   const shown = visible()
   if (!shown.length) {
     box.className = 'nothing'
-    box.append(h('p', { class: 'empty' }, state.sprint?.tickets.length ? T.noMatch : T.noSprint), filtered() && h('button', { onclick: reset }, T.reset))
+    box.append(h('p', { class: 'empty' }, state.sprint?.tickets.length ? T.noMatch : T.noSprint), filtered() ? h('button', { onclick: reset }, T.reset) : '')
     return box
   }
   for (const c of columnsOf(shown))

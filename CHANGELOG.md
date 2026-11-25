@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.0 · 2026-11-25
+
+- The open sprint shows all its tickets, no longer only the first 500
+- A linked project your Jira account cannot see shows a "no access" badge and a notice, with a way to choose other projects
+- Agents searching Jira get up to 200 tickets per site, and are told when more match
+- The empty board no longer shows "false" under its message
+
 ## 0.5.0 · 2026-11-24
 
 - Once a ticket has agents, Launch agent becomes Agent ▾: launch a new agent or bring back one of the ticket's agents, and hover one to see its state, its branch and when it was launched

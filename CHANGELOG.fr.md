@@ -1,5 +1,12 @@
 # Journal des modifications
 
+## 0.6.0 · 2026-11-25
+
+- Le sprint en cours affiche tous ses tickets, plus seulement les 500 premiers
+- Un projet lié que votre compte Jira ne voit pas affiche un badge « pas d’accès » et un avertissement, avec un moyen de choisir d’autres projets
+- Les agents qui cherchent dans Jira obtiennent jusqu’à 200 tickets par site, et sont prévenus quand il y en a d’autres
+- Le tableau vide n’affiche plus « false » sous son message
+
 ## 0.5.0 · 2026-11-24
 
 - Dès qu’un ticket a des agents, Lancer un agent devient Agent ▾ : lancez un nouvel agent ou reprenez un agent du ticket, et survolez-le pour voir son état, sa branche et quand il a été lancé

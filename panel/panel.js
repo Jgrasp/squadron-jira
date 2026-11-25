@@ -79,6 +79,11 @@ const T = fr
       shown: (shown, total) => `${shown} sur ${total}`,
       count: (n) => `${n} ticket${n > 1 ? 's' : ''}`,
       reset: 'Réinitialiser les filtres',
+      noAccess: 'pas d’accès',
+      cannotSee: (name) => ['Votre compte Jira ne voit pas ', name, '.'],
+      details: 'Détails',
+      deniedTitle: (name) => `Pas d’accès à ${name}`,
+      deniedText: 'Votre compte Jira ne peut pas parcourir ce projet. Demandez à un administrateur Jira de vous y ajouter, ou liez-le avec un autre compte.',
       filters: 'Filtres',
       columns: 'Colonnes',
       hideFilters: 'Masquer les filtres',
@@ -163,6 +168,11 @@ const T = fr
       shown: (shown, total) => `${shown} of ${total}`,
       count: (n) => `${n} ticket${n > 1 ? 's' : ''}`,
       reset: 'Reset filters',
+      noAccess: 'no access',
+      cannotSee: (name) => ['Your Jira account cannot see ', name, '.'],
+      details: 'Details',
+      deniedTitle: (name) => `No access to ${name}`,
+      deniedText: 'Your Jira account cannot browse this project. Ask a Jira admin to add you to it, or link it with another account.',
       filters: 'Filters',
       columns: 'Columns',
       hideFilters: 'Hide the filters',
@@ -452,6 +462,23 @@ function scope() {
   return source ? all.filter((t) => inSource(t, source)) : all
 }
 
+const sourceId = (s) => `${s.account}:${s.key}`
+const sourceName = (s) => `${s.key} · ${s.name || s.key}`
+const isDenied = (s) => (state.sprint?.denied ?? []).includes(sourceId(s))
+const blocked = () => state.sources.filter((s) => isDenied(s) && (!state.source || state.source === sourceId(s)))
+
+function notices(pad) {
+  if (!scope().length) return []
+  return blocked().map((s) =>
+    h('div', { class: `notice${pad ? ' pad' : ''}` }, h('span', { class: 'mark', 'aria-hidden': 'true' }), h('span', {}, T.cannotSee(h('b', {}, sourceName(s)))), h('button', { class: 'reset', onclick: () => ((state.source = sourceId(s)), (state.f = emptyFilters()), render()) }, T.details)),
+  )
+}
+
+function deniedCards() {
+  if (scope().length) return []
+  return blocked().map((s) => h('div', { class: 'denied' }, h('h4', {}, T.deniedTitle(sourceName(s))), h('p', {}, T.deniedText), h('button', { class: 'primary', onclick: openSetup }, T.settings)))
+}
+
 function everyone(list) {
   const names = [...new Set(list.map((t) => t.assignee).filter(Boolean))].sort()
   return [...names, ...(list.some((t) => !t.assignee) ? [''] : [])]
@@ -496,6 +523,9 @@ function list() {
   const box = h('div', { class: 'body', id: 'list' })
   if (state.loading && !state.sprint) return box.append(h('p', { class: 'empty' }, T.loading)), box
   for (const e of state.sprint?.errors ?? []) box.append(h('p', { class: 'bad' }, e))
+  const cards = deniedCards()
+  if (cards.length) return box.append(...cards), box
+  box.append(...notices())
   const shown = visible()
   if (!shown.length) box.append(h('p', { class: 'empty' }, state.sprint?.tickets.length ? T.noMatch : T.noSprint))
   for (const g of columnsOf(shown)) box.append(h('h3', {}, g.status, h('small', {}, g.tickets.length)), ...g.tickets.map(ticketRow))
@@ -704,9 +734,9 @@ function rail() {
           h(
             'button',
             { class: 'opt', 'aria-pressed': String(state.source === `${s.account}:${s.key}`), onclick: () => ((state.source = `${s.account}:${s.key}`), (state.f = emptyFilters()), render()) },
-            h('span', { class: 'label' }, s.name || s.key),
+            h('span', { class: isDenied(s) ? 'label muted' : 'label' }, s.name || s.key),
             h('span', { class: 'tag' }, s.key),
-            h('small', {}, all.filter((t) => inSource(t, s)).length),
+            isDenied(s) ? h('span', { class: 'badge bad-tone' }, T.noAccess) : h('small', {}, all.filter((t) => inSource(t, s)).length),
           ),
         ),
       ),
@@ -756,6 +786,8 @@ function rail() {
 function columns() {
   const box = h('div', { class: 'columns', id: 'list' })
   if (state.loading && !state.sprint) return box.append(h('p', { class: 'empty' }, T.loading)), box
+  const cards = deniedCards()
+  if (cards.length) return (box.className = 'nothing'), box.append(...cards), box
   const shown = visible()
   if (!shown.length) {
     box.className = 'nothing'
@@ -829,6 +861,7 @@ function sprintView() {
               count(),
             ),
             (state.sprint?.errors ?? []).map((e) => h('p', { class: 'bad pad' }, e)),
+            notices(true),
             columns(),
           ),
         )

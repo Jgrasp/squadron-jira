@@ -174,6 +174,17 @@ struct Sprint {
     sprints: Vec<String>,
     columns: Vec<String>,
     errors: Vec<String>,
+    denied: Vec<String>,
+}
+
+fn can_browse(account: &Account, key: &str) -> bool {
+    call(
+        account,
+        "GET",
+        &format!("/rest/api/3/mypermissions?projectKey={key}&permissions=BROWSE_PROJECTS"),
+        None,
+    )
+    .is_ok_and(|p| p["permissions"]["BROWSE_PROJECTS"]["havePermission"].as_bool() != Some(false))
 }
 
 fn sprint(project: &str) -> Sprint {
@@ -184,8 +195,8 @@ fn sprint(project: &str) -> Sprint {
     {
         by.entry(source.account).or_default().push(source.key);
     }
-    let (mut tickets, mut sprints, mut columns, mut errors) =
-        (Vec::new(), Vec::<String>::new(), Vec::new(), Vec::new());
+    let (mut tickets, mut sprints, mut columns, mut errors, mut denied) =
+        (Vec::new(), Vec::<String>::new(), Vec::new(), Vec::new(), Vec::new());
     for (id, keys) in by {
         let found = account(&id).and_then(|a| {
             let (mut found, names) = sprint_of(&a, &keys)?;
@@ -200,6 +211,9 @@ fn sprint(project: &str) -> Sprint {
                     } else {
                         rest.push(t);
                     }
+                }
+                if mine.is_empty() && !can_browse(&a, key) {
+                    denied.push(format!("{}:{key}", a.id));
                 }
                 jira::place(&mut mine, &board, &mut columns);
                 found = rest;
@@ -224,6 +238,7 @@ fn sprint(project: &str) -> Sprint {
         sprints,
         columns,
         errors,
+        denied,
     }
 }
 
@@ -794,6 +809,10 @@ impl Extension for Jira {
                 let mut out = lines(&found.tickets);
                 for e in &found.errors {
                     out.push_str(&format!("\nError: {e}"));
+                }
+                for d in &found.denied {
+                    let key = d.split_once(':').map_or(d.as_str(), |(_, k)| k);
+                    out.push_str(&format!("\nNo access to {key}: this Jira account cannot browse it."));
                 }
                 Ok(out)
             }

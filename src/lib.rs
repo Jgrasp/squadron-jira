@@ -4,7 +4,7 @@ use base64::Engine;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use squadron_extension_api::{Account, Agent, Extension, Request, host, squadron_extension};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 struct Jira;
@@ -132,26 +132,39 @@ fn sprint_of(
         "project in ({}) AND sprint in openSprints() ORDER BY project ASC, rank ASC",
         keys.iter().map(|k| format!("\"{k}\"")).collect::<Vec<_>>().join(", ")
     );
-    let (mut tickets, mut sprints, mut token) = (Vec::new(), Vec::new(), None::<String>);
+    let mut sprints = Vec::new();
+    let (issues, _) = issues(account, &jql, &fields, usize::MAX)?;
+    let tickets = issues
+        .iter()
+        .map(|issue| jira::summary(issue, &account.id, &me, field.as_deref(), &mut sprints))
+        .collect();
+    Ok((tickets, sprints))
+}
+
+fn issues(
+    account: &Account,
+    jql: &str,
+    fields: &[&str],
+    cap: usize,
+) -> Result<(Vec<Value>, bool), String> {
+    let (mut found, mut token) = (Vec::new(), None::<String>);
     loop {
         let mut body = json!({ "jql": jql, "fields": fields, "maxResults": 100 });
         if let Some(token) = &token {
             body["nextPageToken"] = json!(token);
         }
-        let page = call(account, "POST", "/rest/api/3/search/jql", Some(body))?;
-        for issue in page["issues"].as_array().into_iter().flatten() {
-            tickets.push(jira::summary(
-                issue,
-                &account.id,
-                &me,
-                field.as_deref(),
-                &mut sprints,
-            ));
+        let mut page = call(account, "POST", "/rest/api/3/search/jql", Some(body))?;
+        if let Value::Array(list) = page["issues"].take() {
+            found.extend(list);
         }
-        token = page["nextPageToken"].as_str().map(str::to_string);
-        if token.is_none() || tickets.len() >= 500 {
-            return Ok((tickets, sprints));
+        let next = page["nextPageToken"].as_str().map(str::to_string);
+        if next.is_none() || next == token {
+            return Ok((found, false));
         }
+        if found.len() >= cap {
+            return Ok((found, true));
+        }
+        token = next;
     }
 }
 
@@ -214,22 +227,47 @@ fn sprint(project: &str) -> Sprint {
     }
 }
 
-fn search(project: &str, jql: &str) -> Result<Vec<jira::Summary>, String> {
-    let mut ids: Vec<String> = sources(project).into_iter().map(|s| s.account).collect();
+fn search(project: &str, jql: &str) -> Result<String, String> {
+    let mut ids: BTreeSet<String> = sources(project).into_iter().map(|s| s.account).collect();
     if ids.is_empty() {
         ids = host::accounts().into_iter().map(|a| a.id).collect();
     }
-    ids.dedup();
-    let mut found = Vec::new();
+    let (mut found, mut notes, mut more) = (Vec::new(), Vec::new(), false);
     for id in ids {
-        let account = account(&id)?;
-        let body = json!({ "jql": jql, "fields": ["summary", "status", "assignee", "issuetype", "priority", "parent"], "maxResults": 50 });
-        let page = call(&account, "POST", "/rest/api/3/search/jql", Some(body))?;
-        for issue in page["issues"].as_array().into_iter().flatten() {
-            found.push(jira::summary(issue, &account.id, "", None, &mut Vec::new()));
-        }
+        let account = match account(&id) {
+            Ok(account) => account,
+            Err(error) => {
+                notes.push(error);
+                continue;
+            }
+        };
+        let fields = [
+            "summary",
+            "status",
+            "assignee",
+            "issuetype",
+            "priority",
+            "parent",
+        ];
+        let (issues, cut) = issues(&account, jql, &fields, 200)?;
+        found.extend(
+            issues
+                .iter()
+                .map(|issue| jira::summary(issue, &account.id, "", None, &mut Vec::new())),
+        );
+        more |= cut;
     }
-    Ok(found)
+    if more {
+        notes.push("More tickets match: narrow the JQL.".to_string());
+    }
+    if found.is_empty() && !notes.is_empty() {
+        return Err(notes.join("\n"));
+    }
+    Ok([lines(&found)]
+        .into_iter()
+        .chain(notes)
+        .collect::<Vec<_>>()
+        .join("\n"))
 }
 
 fn ticket(account: &Account, key: &str) -> Result<jira::Ticket, String> {
@@ -764,7 +802,7 @@ impl Extension for Jira {
                 if jql.trim().is_empty() {
                     return Err("Give a JQL query.".into());
                 }
-                Ok(lines(&search(&project, &jql)?))
+                search(&project, &jql)
             }
             _ => Err(format!("Unknown tool {name}.")),
         }

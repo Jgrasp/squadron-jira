@@ -336,6 +336,7 @@ function drag(event, name) {
 
 function loadSprint() {
   state.loading = true
+  state.error = ''
   send('sprint')
   render()
 }
@@ -442,7 +443,7 @@ squadron.on((msg) => {
       if (msg.for === 'projects') state.projects[msg.account || ''] = []
       state.busy = ''
       state.note = ''
-      state.error = msg.message
+      state.error = msg.for === 'sprint' ? '' : msg.message
       break
   }
   render()
@@ -523,6 +524,7 @@ function list() {
   const box = h('div', { class: 'body', id: 'list' })
   if (state.loading && !state.sprint) return box.append(h('p', { class: 'empty' }, T.loading)), box
   for (const e of state.sprint?.errors ?? []) box.append(h('p', { class: 'bad' }, e))
+  if (state.error) box.append(h('p', { class: 'bad' }, state.error))
   const cards = deniedCards()
   if (cards.length) return box.append(...cards), box
   box.append(...notices())
@@ -861,6 +863,7 @@ function sprintView() {
               count(),
             ),
             (state.sprint?.errors ?? []).map((e) => h('p', { class: 'bad pad' }, e)),
+            state.error && h('p', { class: 'bad pad' }, state.error),
             notices(true),
             columns(),
           ),

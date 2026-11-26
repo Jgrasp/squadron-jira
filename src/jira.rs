@@ -625,8 +625,10 @@ pub fn context_with(ticket: &Ticket, chosen: &[String]) -> String {
         }
     }
     if on("attachments") && !ticket.attachments.is_empty() {
-        let names: Vec<&str> = ticket.attachments.iter().map(|a| a.name.as_str()).collect();
-        out.push_str(&format!("\n## Attachments\n{}\n", names.join(", ")));
+        out.push_str("\n## Attachments\n");
+        for a in &ticket.attachments {
+            out.push_str(&format!("- {} (id {}, {}, {} KB)\n", a.name, a.id, a.mime, a.size.div_ceil(1024)));
+        }
     }
     if on("comments") && !ticket.comments.is_empty() {
         out.push_str("\n## Comments\n");
@@ -699,6 +701,15 @@ pub fn file_name(name: &str) -> String {
         "attachment".into()
     } else {
         clean
+    }
+}
+
+pub fn ascii_name(id: &str, name: &str) -> String {
+    match name.rsplit_once('.') {
+        Some((_, ext)) if !ext.is_empty() && ext.len() <= 10 && ext.chars().all(|c| c.is_ascii_alphanumeric()) => {
+            format!("{id}.{}", ext.to_ascii_lowercase())
+        }
+        _ => id.to_string(),
     }
 }
 
@@ -952,6 +963,7 @@ mod tests {
         assert!(c.contains("- Story points: 5\n"));
         assert!(c.contains("- blocks RING-13 Refunds (To Do)\n"));
         assert!(c.contains("- Bob (2026-11-02): No PayPal.\n  - Ada (2026-11-03): Agreed.\n"));
+        assert!(c.contains("## Attachments\n- flow.png (id 100, image/png, 2 KB)\n"));
         assert!(c.ends_with("</ticket>"));
         let some = context_with(&t, &["description".into(), "status".into()]);
         assert!(some.contains("- Status: In Progress\n") && some.contains("## Description"));
@@ -1014,6 +1026,9 @@ mod tests {
         );
         assert_eq!(file_name("../a/b:c.png"), "_a_b_c.png");
         assert_eq!(file_name(".."), "attachment");
+        assert_eq!(ascii_name("48079", "Capture d\u{2019}e\u{301}cran a\u{300} 15.39.36.PNG"), "48079.png");
+        assert_eq!(ascii_name("7", "README"), "7");
+        assert_eq!(ascii_name("7", "a.tar.gz"), "7.gz");
         assert!(ticket_key("RING-12") && !ticket_key("RING 12") && !ticket_key("../x"));
         assert!(project_key("RING") && !project_key("RING)"));
     }

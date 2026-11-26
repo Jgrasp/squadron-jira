@@ -1,5 +1,9 @@
 # Journal des modifications
 
+## 0.7.0 · 2026-11-26
+
+- Les agents peuvent ouvrir les pièces jointes d’un ticket : `jira_ticket` donne l’id de chacune, et le nouvel outil `jira_attachment` la télécharge pour que l’agent lise les captures d’écran et les PDF
+
 ## 0.6.1 · 2026-11-26
 
 - Quand « Lancer un agent » échoue depuis une carte du tableau du sprint, l’erreur s’affiche au-dessus du tableau au lieu de rien

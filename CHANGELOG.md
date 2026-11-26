@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.0 · 2026-11-26
+
+- Agents can open a ticket's attachments: `jira_ticket` lists each one with its id, and the new `jira_attachment` tool downloads it so the agent reads screenshots and PDFs
+
 ## 0.6.1 · 2026-11-26
 
 - When Launch agent fails from a sprint board card, its error now shows above the board instead of nothing

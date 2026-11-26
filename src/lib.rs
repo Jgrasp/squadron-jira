@@ -410,6 +410,10 @@ fn thumb(account: &Account, id: &str) -> Result<String, String> {
 }
 
 fn open(account: &Account, id: &str, name: &str) -> Result<(), String> {
+    host::open_file(&save(account, id, name)?)
+}
+
+fn save(account: &Account, id: &str, name: &str) -> Result<String, String> {
     if !id.chars().all(|c| c.is_ascii_digit()) || id.is_empty() {
         return Err("Invalid attachment.".into());
     }
@@ -425,7 +429,7 @@ fn open(account: &Account, id: &str, name: &str) -> Result<(), String> {
     if !(200..300).contains(&saved.status) {
         return Err(format!("Jira answered {}.", saved.status));
     }
-    host::open_file(&saved.path)
+    Ok(saved.path)
 }
 
 fn brief(dir: &str, context: &str) -> Result<(String, String), String> {
@@ -800,6 +804,19 @@ impl Extension for Jira {
                 let key = jira::text(&input["key"]).trim().to_uppercase();
                 let account = account_for(&project, &key)?;
                 Ok(jira::context(&ticket(&account, &key)?))
+            }
+            "attachment" => {
+                let key = jira::text(&input["key"]).trim().to_uppercase();
+                let id = jira::text(&input["id"]);
+                let account = account_for(&project, &key)?;
+                let found = ticket(&account, &key)?;
+                let file = found
+                    .attachments
+                    .iter()
+                    .find(|a| a.id == id)
+                    .ok_or_else(|| format!("{key} has no attachment {id}."))?;
+                let path = save(&account, &file.id, &file.name)?;
+                Ok(format!("{} ({}) saved to {path}. Read that file to see it.", file.name, file.mime))
             }
             "sprint" => {
                 if sources(&project).is_empty() {

@@ -625,8 +625,10 @@ pub fn context_with(ticket: &Ticket, chosen: &[String]) -> String {
         }
     }
     if on("attachments") && !ticket.attachments.is_empty() {
-        let names: Vec<&str> = ticket.attachments.iter().map(|a| a.name.as_str()).collect();
-        out.push_str(&format!("\n## Attachments\n{}\n", names.join(", ")));
+        out.push_str("\n## Attachments\n");
+        for a in &ticket.attachments {
+            out.push_str(&format!("- {} (id {}, {}, {} KB)\n", a.name, a.id, a.mime, a.size.div_ceil(1024)));
+        }
     }
     if on("comments") && !ticket.comments.is_empty() {
         out.push_str("\n## Comments\n");
@@ -952,6 +954,7 @@ mod tests {
         assert!(c.contains("- Story points: 5\n"));
         assert!(c.contains("- blocks RING-13 Refunds (To Do)\n"));
         assert!(c.contains("- Bob (2026-11-02): No PayPal.\n  - Ada (2026-11-03): Agreed.\n"));
+        assert!(c.contains("## Attachments\n- flow.png (id 100, image/png, 2 KB)\n"));
         assert!(c.ends_with("</ticket>"));
         let some = context_with(&t, &["description".into(), "status".into()]);
         assert!(some.contains("- Status: In Progress\n") && some.contains("## Description"));

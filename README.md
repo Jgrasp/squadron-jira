@@ -16,9 +16,10 @@ The panel lists the tickets of the open sprints, grouped by status, with a searc
 - **Turn into an instruction** asks Haiku for the instruction and how to check it is done, and adds them to your message with the ticket;
 - an attachment opens in your app for it.
 
-Agents get three tools:
+Agents get four tools:
 
-- `jira_ticket`: a ticket as markdown, from its key;
+- `jira_ticket`: a ticket as markdown, from its key, with the id of each attachment;
+- `jira_attachment`: downloads an attachment and gives its path, so the agent reads a screenshot or a PDF;
 - `jira_sprint`: the open sprint of the Jira projects linked to the project;
 - `jira_search`: the tickets matching a JQL query.
 

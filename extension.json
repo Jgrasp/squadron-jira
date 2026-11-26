@@ -48,6 +48,18 @@
         "description": "Reads a Jira ticket: fields, description, subtasks, links, attachments and comments, as markdown.",
         "input": { "type": "object", "properties": { "key": { "type": "string", "description": "The ticket key, like RING-12." } }, "required": ["key"] }
       },
+      {
+        "name": "attachment",
+        "description": "Downloads an attachment of a Jira ticket (screenshot, PDF, file) and gives its local path, to read with the Read tool. The ids are in the Attachments list of the ticket tool.",
+        "input": {
+          "type": "object",
+          "properties": {
+            "key": { "type": "string", "description": "The ticket key, like RING-12." },
+            "id": { "type": "string", "description": "The attachment id, like 10042." }
+          },
+          "required": ["key", "id"]
+        }
+      },
       { "name": "sprint", "description": "Lists the tickets of the open sprint of the Jira projects linked to this Squadron project, with their status and assignee." },
       {
         "name": "search",

@@ -19,7 +19,7 @@ The panel lists the tickets of the open sprints, grouped by status, with a searc
 Agents get four tools:
 
 - `jira_ticket`: a ticket as markdown, from its key, with the id of each attachment;
-- `jira_attachment`: downloads an attachment and gives its path, so the agent reads a screenshot or a PDF;
+- `jira_attachment`: downloads an attachment and gives its path; screenshots and PDFs come attached, so the agent sees them without asking you to read a file;
 - `jira_sprint`: the open sprint of the Jira projects linked to the project;
 - `jira_search`: the tickets matching a JQL query.
 

@@ -816,12 +816,22 @@ impl Extension for Jira {
                     .find(|a| a.id == id)
                     .ok_or_else(|| format!("{key} has no attachment {id}."))?;
                 let path = save(&account, &file.id, &jira::ascii_name(&file.id, &file.name))?;
+                let shown = matches!(
+                    file.mime.as_str(),
+                    "image/png" | "image/jpeg" | "image/gif" | "image/webp" | "application/pdf"
+                ) && host::tool_file(&path).is_ok();
                 let readable = file.mime.starts_with("image/") || file.mime == "application/pdf";
                 Ok(format!(
                     "{} ({}) saved to {path}.{}",
                     file.name,
                     file.mime,
-                    if readable { " Read that file to see it." } else { "" }
+                    if shown {
+                        " It is attached below."
+                    } else if readable {
+                        " Read that file to see it."
+                    } else {
+                        ""
+                    }
                 ))
             }
             "sprint" => {

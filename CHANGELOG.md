@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0 · 2026-11-26
+
+- `jira_attachment` hands screenshots and PDFs straight to the agent: no more permission to read a file outside the project. Needs Squadron 0.66
+
 ## 0.7.0 · 2026-11-26
 
 - Agents can open a ticket's attachments: `jira_ticket` lists each one with its id, and the new `jira_attachment` tool downloads it so the agent reads screenshots and PDFs

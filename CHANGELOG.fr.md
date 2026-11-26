@@ -1,5 +1,9 @@
 # Journal des modifications
 
+## 0.8.0 · 2026-11-26
+
+- `jira_attachment` donne directement les captures d’écran et les PDF à l’agent : plus de permission à accorder pour lire un fichier hors du projet. Nécessite Squadron 0.66
+
 ## 0.7.0 · 2026-11-26
 
 - Les agents peuvent ouvrir les pièces jointes d’un ticket : `jira_ticket` donne l’id de chacune, et le nouvel outil `jira_attachment` la télécharge pour que l’agent lise les captures d’écran et les PDF

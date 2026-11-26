@@ -1,8 +1,8 @@
 {
   "id": "jira",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "api": 1,
-  "squadron": ">=0.52.0",
+  "squadron": ">=0.66.0",
   "name": { "en": "Jira", "fr": "Jira" },
   "description": {
     "en": "The open sprint of your Jira projects next to your agents: read a ticket, put it in your message or turn it into an instruction",
@@ -50,7 +50,7 @@
       },
       {
         "name": "attachment",
-        "description": "Downloads an attachment of a Jira ticket (screenshot, PDF, file) and gives its local path, to read with the Read tool. The ids are in the Attachments list of the ticket tool.",
+        "description": "Downloads an attachment of a Jira ticket (screenshot, PDF, file) and gives its local path. Images and PDFs come attached to the result. The ids are in the Attachments list of the ticket tool.",
         "input": {
           "type": "object",
           "properties": {

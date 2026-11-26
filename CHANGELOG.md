@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.1 · 2026-11-26
+
+- When Launch agent fails from a sprint board card, its error now shows above the board instead of nothing
+
 ## 0.6.0 · 2026-11-25
 
 - The open sprint shows all its tickets, no longer only the first 500

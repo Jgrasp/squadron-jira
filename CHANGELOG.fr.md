@@ -1,5 +1,9 @@
 # Journal des modifications
 
+## 0.6.1 · 2026-11-26
+
+- Quand « Lancer un agent » échoue depuis une carte du tableau du sprint, l’erreur s’affiche au-dessus du tableau au lieu de rien
+
 ## 0.6.0 · 2026-11-25
 
 - Le sprint en cours affiche tous ses tickets, plus seulement les 500 premiers

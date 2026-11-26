@@ -704,6 +704,15 @@ pub fn file_name(name: &str) -> String {
     }
 }
 
+pub fn ascii_name(id: &str, name: &str) -> String {
+    match name.rsplit_once('.') {
+        Some((_, ext)) if !ext.is_empty() && ext.len() <= 10 && ext.chars().all(|c| c.is_ascii_alphanumeric()) => {
+            format!("{id}.{}", ext.to_ascii_lowercase())
+        }
+        _ => id.to_string(),
+    }
+}
+
 pub const BRIEF: &str = "You turn a Jira ticket into the instruction a coding agent receives in this repository. Write in the language the ticket is written in. Reply with JSON only, no code fence: {\"prompt\": \"...\", \"goal\": \"...\"}. prompt: what to do, in a short paragraph then a dash list of the concrete requirements, constraints and decisions taken in the comments (latest decision wins). Mention the ticket key once. No preamble, no restating the title. goal: one sentence saying how to check the work is finished.";
 
 pub fn brief(reply: &str) -> Option<(String, String)> {
@@ -1017,6 +1026,9 @@ mod tests {
         );
         assert_eq!(file_name("../a/b:c.png"), "_a_b_c.png");
         assert_eq!(file_name(".."), "attachment");
+        assert_eq!(ascii_name("48079", "Capture d\u{2019}e\u{301}cran a\u{300} 15.39.36.PNG"), "48079.png");
+        assert_eq!(ascii_name("7", "README"), "7");
+        assert_eq!(ascii_name("7", "a.tar.gz"), "7.gz");
         assert!(ticket_key("RING-12") && !ticket_key("RING 12") && !ticket_key("../x"));
         assert!(project_key("RING") && !project_key("RING)"));
     }

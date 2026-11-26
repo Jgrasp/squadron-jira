@@ -815,7 +815,7 @@ impl Extension for Jira {
                     .iter()
                     .find(|a| a.id == id)
                     .ok_or_else(|| format!("{key} has no attachment {id}."))?;
-                let path = save(&account, &file.id, &file.name)?;
+                let path = save(&account, &file.id, &jira::ascii_name(&file.id, &file.name))?;
                 let readable = file.mime.starts_with("image/") || file.mime == "application/pdf";
                 Ok(format!(
                     "{} ({}) saved to {path}.{}",

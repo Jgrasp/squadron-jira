@@ -1,6 +1,6 @@
 # Jira
 
-A [Squadron](https://github.com/Jgrasp/squadron) extension that shows the open sprint of your Jira projects next to your agents, and gives your agents Jira tools.
+A [Squadron](https://github.com/akki-team/squadron) extension that shows the open sprint of your Jira projects next to your agents, and gives your agents Jira tools.
 
 ## Use
 

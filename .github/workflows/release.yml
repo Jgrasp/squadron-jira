@@ -13,4 +13,4 @@ jobs:
   release:
     permissions:
       contents: write
-    uses: Jgrasp/squadron-extensions/.github/workflows/release.yml@main
+    uses: akki-team/squadron-extensions/.github/workflows/release.yml@main
